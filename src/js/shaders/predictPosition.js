@@ -13,14 +13,21 @@ uniform float uForcePosition;
 
 out vec4 colorData;
 
-void main() {
+// 根据 gl_VertexID 计算出对应的纹理坐标，范围 (0, 1)
+vec2 getIndex() {
     // 获取纹理大小
-    int tSize = textureSize(uTexturePosition, 0).x;     
-    float textureSize = float(tSize); 
+    int tSize = textureSize(uTexturePosition, 0).x;
+    float textureSize = float(tSize);
+    float x = (float(gl_VertexID % tSize) + 0.5) / textureSize;
+    float y = (floor(float(gl_VertexID) / textureSize) + 0.5) / textureSize;
+    return vec2(x, y);
+}
 
-    // 计算出对应的纹理坐标, 范围 (0, 1)
-    vec2 index = vec2(float(gl_VertexID % tSize) + 0.5, (floor(float(gl_VertexID) / textureSize)) + 0.5) / textureSize;
-    
+void main() {
+
+    // 获取当前顶点对应的纹理坐标，范围 (0, 1)
+    vec2 index = getIndex();
+
     // 取出对应纹理坐标下的数据
     vec3 old_position = texture(uTexturePosition, index).rgb;
     vec3 velocity = texture(uTextureVelocity, index).rgb;

@@ -2,6 +2,8 @@ const vsParticles = `#version 300 es
 uniform mat4 uCameraMatrix;
 uniform mat4 uPMatrix;
 
+uniform float particleSize;
+
 uniform sampler2D uTexturePosition;     // 2D 数组, 采样获得的 RGBA 对应 x y 1 1
 uniform float uScale;                   // pbfResolution
 
@@ -26,9 +28,9 @@ void main()
 
     gl_Position = uPMatrix * uCameraMatrix * vec4(position, 1.);
 
-    gl_PointSize = 4.;
+    gl_PointSize = particleSize;
 
-    colorData = vec4(0.0, 0.0, 1.0, 1.0);
+    colorData = vec4(position.y / 3., position.y / 3., 1.0, 1.0);
     // colorData.rgb = position;
     // colorData.a = 1.;
 

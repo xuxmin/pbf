@@ -6,18 +6,49 @@ precision highp sampler3D;
 // Uniforms:
 uniform sampler2D uTexturePosition; 
 uniform sampler2D uTextureVelocity; // Holds particle velocities and the phase
-uniform sampler2D uTextureVorticity;
+uniform sampler2D uNeighbors;
 
+uniform float uGridTextureSize; // 最终的 voxelTexture 大小
+uniform float uBucketSize; // 粒子的活动范围
 
-uniform vec2 uResolution;
-
-uniform vec3 uBinCountVec;
-
-uniform float uTextureSize;
-uniform float uTime;
 uniform float uKernelRadius;
-uniform float uVorticity;
 
+out vec4 colorData;
+
+
+vec3 OFFSET[27] = vec3[](
+    vec3(0, 0, 0), vec3(1., 0, 0), vec3(-1., 0, 0),
+    vec3(1., 1., 0), vec3(-1., 1., 0), vec3(1., -1, 0),
+    vec3(-1., -1., 0), vec3(0, 1., 0), vec3(0, -1., 0),
+    vec3(0, 0, -1.), vec3(1., 0, -1.), vec3(-1., 0, -1.),
+    vec3(1., 1., -1.), vec3(-1., 1., -1.), vec3(1., -1, -1.),
+    vec3(-1., -1., -1.), vec3(0, 1., -1.), vec3(0, -1., -1.),
+    vec3(0, 0, 1.), vec3(1., 0, 1.), vec3(-1., 0, 1.),
+    vec3(1., 1., 1.), vec3(-1., 1., 1.), vec3(1., -1, 1.),
+    vec3(-1., -1., 1.), vec3(0, 1., 1.), vec3(0, -1., 1.)
+);
+
+// 根据 gl_VertexID 计算出对应的纹理坐标，范围 (0, 1)
+vec2 getIndex() {
+    // 获取纹理大小
+    int tSize = textureSize(uTexturePosition, 0).x;
+    float textureSize = float(tSize);
+    float x = (float(gl_VertexID % tSize) + 0.5) / textureSize;
+    float y = (floor(float(gl_VertexID) / textureSize) + 0.5) / textureSize;
+    return vec2(x, y);
+}
+
+// 根据三维 grid 坐标, 计算出对应的 Grid 纹理坐标
+vec2 getGridCoordinates(vec3 gridPosition) {
+    float BucketNum = uGridTextureSize / uBucketSize;
+    float x = mod(gridPosition.z, BucketNum);
+    float y = floor(gridPosition.z / BucketNum);
+    vec2 coord = vec2(x, y);
+
+    vec2 gridIndex = (gridPosition.xy + uBucketSize * coord + vec2(0.5)) / uGridTextureSize;
+
+    return gridIndex;
+}
 
 vec3 gradWspiky(vec3 r) {
     float h = uKernelRadius;
@@ -25,149 +56,65 @@ vec3 gradWspiky(vec3 r) {
     if (l > h || l == 0.0)
         return vec3(0);
     float tmp = h - l;
-    return (-3.0 * 4.774648292756860 * tmp * tmp) * r / (l * h * h * h * h * h * h);
+    return (-14.3239569771 * tmp * tmp) * r / (l * h * h * h * h * h * h);
 }
 
-vec3 computeVorticity( in vec2 uv) {
+// 根据从 grid 中获取的顶点序号，计算出对应的纹理坐标
+vec2 getNeighborTexIndex(float neighborIndex) {
+    float texturePositionSize = float(textureSize(uTexturePosition, 0).x);
+    float x = mod(neighborIndex, texturePositionSize) + 0.5;
+    float y = floor(neighborIndex / texturePositionSize) + 0.5;
+    // 获得了纹理坐标
+    vec2 index = vec2(x, y) / texturePositionSize;
 
-    // There is a maximum of 108 particle neighbors (27 bins * 4 particles)
-    // Each bin has 4 particle IDs of the partices they inhabit
-    vec4 neighborBins[27];
-    vec4 particles[4];
-    vec3 shift;
-    vec2 texel;
-    vec3 v_i = particleVelocity;
-    vec3 vorticityArray[4];
-    vec3 v = vec3(0);
-    vec3 vorticity = texture(uVorticityTex, uv).xyz;
-    vec3 gradVorticity = vec3(0);
-
-    // Look up the values of the neighboring bins to get the neighboring particles
-    for (int i = 0; i < 27; i++) {
-
-        // Get the particle IDs
-        shift = vec3(OFFSET[i].x * steps.x, OFFSET[i].y * steps.y, OFFSET[i].z * steps.z);
-        neighborBins[i] = texture(uBin3DTex, binCoord + shift).rgba;
-
-        for (int j = 0; j < 4; j++) {
-            // Convert the particle IDs to the corresponding texture coordinates and get the particle values
-            if (neighborBins[i][j] == -1.0) {
-                particles[j] = vec4(-1.0);
-            } else {
-                texel.y = floor(neighborBins[i][j] / uTextureSize);
-                texel.x = neighborBins[i][j] - (texel.y * uTextureSize);
-                texel = texel / uTextureSize;
-                particles[j] = texture(uTexturePosition, texel);
-                vorticityArray[j] = texture(uVorticityTex, texel).xyz;
-            }
-        }
-
-        int k = 0;
-        vec4 particlesCorrected[4] = particles;
-        float colorCounter = 0.0;
-
-        for (int j = 0; j < 4; j++) {
-
-            if (particles[j] != vec4(-1.0)) {
-
-                // Compute vorticity
-                vec3 position_j = particles[j].xyz;
-
-                vec3 p_ij = particlePosition - position_j;
-
-                gradVorticity += length(vorticityArray[j]) * gradWspiky(p_ij);
-            }
-        }
-
-    }
-
-    float l = length(gradVorticity);
-    if (l > 0.0)
-        gradVorticity /= l;
-
-    vec3 N = gradVorticity;
-
-    // Apply vorticity force
-    v = v_i + uTime * uVorticity * cross(N, vorticity);
-
-    return v;
-
+    return index;
 }
-
-vec3 offsets[27];
-float texturePositionSize;
-float h2;
-
-out vec4 colorData;
-
-void addToSum( in vec3 particlePosition, in float neighborIndex, in vec3 particleVelocity, inout vec3 deltaVelocity) {
-    vec2 index = vec2(mod(neighborIndex, texturePositionSize) + 0.5, floor(neighborIndex / texturePositionSize) + 0.5) / texturePositionSize;
-    vec3 distance = particlePosition - texture(uTexturePosition, index).rgb;
-    float r = length(distance);
-    if (r > 0. && r < uKernelRadius)
-        deltaVelocity += (particleVelocity - texture(uTextureVelocity, index).rgb) * (uKernelRadius - r);
-}
-
 
 void main() {
 
-    texturePositionSize = float(textureSize(uTexturePosition, 0).x);
-    h2 = uKernelRadius * uKernelRadius;
+    // 获取当前顶点对应的纹理坐标，范围 (0, 1)
+    vec2 index = getIndex();
 
-    offsets[0] = vec3(-1., -1., -1.);
-    offsets[1] = vec3(-1., -1., 0.);
-    offsets[2] = vec3(-1., -1., 1.);
-    offsets[3] = vec3(-1., 0., -1.);
-    offsets[4] = vec3(-1., 0., 0.);
-    offsets[5] = vec3(-1., 0., 1.);
-    offsets[6] = vec3(-1., 1., -1.);
-    offsets[7] = vec3(-1., 1., 0.);
-    offsets[8] = vec3(-1., 1., 1.);
-    offsets[9] = vec3(0., -1., -1.);
-    offsets[10] = vec3(0., -1., 0.);
-    offsets[11] = vec3(0., -1., 1.);
-    offsets[12] = vec3(0., 0., -1.);
-    offsets[13] = vec3(0., 0., 0.);
-    offsets[14] = vec3(0., 0., 1.);
-    offsets[15] = vec3(0., 1., -1.);
-    offsets[16] = vec3(0., 1., 0.);
-    offsets[17] = vec3(0., 1., 1.);
-    offsets[18] = vec3(1., -1., -1.);
-    offsets[19] = vec3(1., -1., 0.);
-    offsets[20] = vec3(1., -1., 1.);
-    offsets[21] = vec3(1., 0., -1.);
-    offsets[22] = vec3(1., 0., 0.);
-    offsets[23] = vec3(1., 0., 1.);
-    offsets[24] = vec3(1., 1., -1.);
-    offsets[25] = vec3(1., 1., 0.);
-    offsets[26] = vec3(1., 1., 1.);
-
-    int tSize = textureSize(uTexturePosition, 0).x;
-    float textureSize = float(tSize);
-    vec2 index = vec2(float(gl_VertexID % tSize) + 0.5, (floor(float(gl_VertexID) / textureSize)) + 0.5) / textureSize;
     gl_Position = vec4(2. * index - vec2(1.), 0., 1.);
     gl_PointSize = 1.;
 
+    // 取出粒子的位置和速度
     vec3 particlePosition = texture(uTexturePosition, index).rgb;
     vec3 particleVelocity = texture(uTextureVelocity, index).rgb;
-    vec3 gridPosition = floor(particlePosition);
-    vec3 deltaVelocity = vec3(0.);
 
+    vec3 gridPosition = floor(particlePosition);
+
+	vec3 vorticity = vec3(0);
+
+    // 遍历所有相邻的 grid
     for (int i = 0; i < 27; i++) {
 
-        vec3 neighborsVoxel = gridPosition + offsets[i];
-        vec2 voxelsIndex = (neighborsVoxel.xy + uBucketSize * vec2(mod(neighborsVoxel.z, uBucketNum), floor(neighborsVoxel.z / uBucketNum)) + vec2(0.5)) / uVoxelTextureSize;
-        vec4 neighbors = texture(uNeighbors, voxelsIndex);
+        // 获得对应的 gridIndex 纹理坐标
+        vec2 gridIndex = getGridCoordinates(gridPosition + OFFSET[i]);
 
-        if (neighbors.r > 0.) addToSum(particlePosition, neighbors.r, particleVelocity, deltaVelocity);
-        if (neighbors.g > 0.) addToSum(particlePosition, neighbors.g, particleVelocity, deltaVelocity);
-        if (neighbors.b > 0.) addToSum(particlePosition, neighbors.b, particleVelocity, deltaVelocity);
-        if (neighbors.a > 0.) addToSum(particlePosition, neighbors.a, particleVelocity, deltaVelocity);
+        vec4 neighbors = texture(uNeighbors, gridIndex);
+
+        // 遍历所有的邻居粒子
+        for (int j = 0; j < 4; j++) {
+
+            if (neighbors[j] <= 0.)
+                continue;
+
+            // 邻居粒子纹理坐标
+            vec2 neighborIndex = getNeighborTexIndex(neighbors[j]);
+            // 邻居粒子的位置和速度
+            vec3 neighborPosition = texture(uTexturePosition, neighborIndex).rgb;
+            vec3 neighborVelocity = texture(uTextureVelocity, neighborIndex).rgb;
+
+            vec3 distance = particlePosition - neighborPosition;
+            vec3 v_ij = neighborVelocity - particleVelocity;
+
+			vorticity += cross(v_ij, gradWspiky(distance));
+        }
     }
 
-    particleVelocity += (uViscosityConstant / uRestDensity) * deltaVelocity;
 
-    colorData = vec4(particleVelocity, 1.);
+    colorData = vec4(vorticity, 1.);
 }
 
 `;

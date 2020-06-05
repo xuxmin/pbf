@@ -4,9 +4,11 @@
 <head lang="en">
     <meta charset="UTF-8">
     <title>Position Based Fluids</title>
-    <script type="text/javascript" src="libs/js/gl-matrix-min.js"></script>
-    <script type="text/javascript" src="libs/js/stats.js"></script>
-    <script type="text/javascript" src="libs/js/dat.gui.js"></script>
+    <script type="text/javascript" src="libs/gl-matrix-min.js"></script>
+    <script type="text/javascript" src="libs/stats.js"></script>
+    <script type="text/javascript" src="libs/dat.gui.js"></script>
+    <script type="text/javascript" src="libs/jszip.min.js"></script>
+    <script type="text/javascript" src="libs/FileSaver.min.js"></script>
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
@@ -48,13 +50,16 @@
     <script src="js/shaders/calculateViscosity.js"></script>
     <script src="js/shaders/calculateLambda.js"></script>
     <script src="js/shaders/calculateDeltaP.js"></script>
-    <script src="js/shaders/calculateVelocity.js"></script>
+    <script src="js/shaders/calculateVorticity.js"></script>
+    <script src="js/shaders/applyVorticity.js"></script>
+    <script src="js/shaders/integrateVelocity.js"></script>
     <script src="js/shaders/renderRect.js"></script>
 
     <script src="js/utils.js"></script>
     <script src="js/camera.js"></script>
 
     <script src="js/pbf.js"></script>
+    <script src="js/marchingCube.js"></script>
     <script src="js/rectangle.js"></script>
     <script src="js/main_gpu.js"></script>
 </body>

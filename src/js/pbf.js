@@ -8,23 +8,7 @@ class PBF {
         this.gridsTextureSize = 0;     // Math.ceil(Math.sqrt(Math.pow(bucketSize, 3)));
 
         // some parameters
-        this.restDensity = 1000;
         this.kernelRadius = 1.8; // 至少要大于 1 吧?
-        this.particleMass = this.restDensity; // mass = density * volume / totalParticles
-        this.polyConstant = (315 / (64 * Math.PI * Math.pow(this.kernelRadius, 9))) * this.particleMass;  // TODO !!!
-        this.spikyGradConstant = - 45 / (Math.PI * Math.pow(this.kernelRadius, 6));
-        this.relaxParameter = 0.05;         // !!!
-        // for lambda correction
-        this.tensileK = 40;
-        this.tensilePower = 4;
-        this.tensileDistanceMultiplier = 0.3;
-        this.tensileDistance = this.tensileDistanceMultiplier * this.kernelRadius;
-
-        this.viscosity = 0.1;
-        this.viscosityConstant = - this.viscosity * 45 / (Math.PI * Math.pow(this.kernelRadius, 6) * this.restDensity);
-
-        this.forcePosition = 0.0;
-        this.forcePositionDelta = 0.1;
 
         // shader program
         this.copyTextureProgram = null;             // 用于复制纹理的
@@ -32,8 +16,9 @@ class PBF {
         this.searchNeighbordsProgram = null;        // 搜索邻居粒子
         this.calculateLambdaProgram = null;         // 计算 Lambda
         this.calculateDeltaPProgram = null;         // 计算 ΔP
-        this.calculateVelocityProgram  = null;      // 根据 ΔP 计算速度
+        this.integrateVelocityProgram = null;       // 根据 ΔP 计算速度
         this.calculateViscosityProgram = null;      // 施加粘度
+        this.calculateVorticityProgram = null;      // 施加 VC
 
         // texture
         this.positionTexture = null;                // 存储粒子位置信息
@@ -42,7 +27,7 @@ class PBF {
         this.tmpVelocityTexture = null;
         this.gridsTexture = null;                  // 存储每个 grid 对应的粒子
         this.lambdaTexture = null;                  // 存储每个粒子的 lambda
-        this.vorticityTexture = null;               // 
+        this.vorticityTexture = null;               // 存储粒子的旋度
 
         // buffer
         this.positionBuffer = null;
@@ -62,14 +47,14 @@ class PBF {
      */
     init(particlesPosition, particlesVelocity, _bucketSize) {
         this.totalParticles = particlesPosition.length / 4.;
-        // this.particlesTextureSize = Math.ceil(Math.sqrt(this.totalParticles));
-        this.particlesTextureSize = 512;
+        this.particlesTextureSize = Math.ceil(Math.sqrt(this.totalParticles));
+        // this.particlesTextureSize = 512;
         console.log("Total Partivles: " + this.totalParticles.toString());
         console.log("Particle TextureSize: " + this.particlesTextureSize.toString());
 
         this.bucketSize = _bucketSize;
         // this.gridsTextureSize = Math.ceil(Math.sqrt(Math.pow(this.bucketSize, 3)));
-        this.gridsTextureSize = 512;    // TODO: 设置成上面的为什么会出错??
+        this.gridsTextureSize = 768; // 需要保证 gridsTextureSize 能够整除 bucketSize
         console.log("Bucket Size: " + this.bucketSize.toString());
         console.log("Grid TextureSize: " + this.gridsTextureSize.toString());
 
@@ -85,8 +70,10 @@ class PBF {
         this.copyTextureProgram         = new Shader(vsTextureColor, fsTextureColor);
         this.calculateLambdaProgram     = new Shader(vsCalculateLambda, fsColor);
         this.calculateDeltaPProgram     = new Shader(vsCalculateDeltaP, fsColor);
-        this.calculateVelocityProgram   = new Shader(vsCalculateVelocity, fsColor);
+        this.integrateVelocityProgram   = new Shader(vsIntegrateVelocity, fsColor);
         this.calculateViscosityProgram  = new Shader(vsCalculateViscosity, fsColor);
+        this.calculateVorticityProgram  = new Shader(vsCalculateVorticity, fsColor);
+        this.applyVorticityProgram      = new Shader(vsApplyVorticity, fsColor);
 
         // 初始化纹理
         this.positionTexture = new Texture();
@@ -117,17 +104,23 @@ class PBF {
         this.vorticityBuffer    = createDrawFramebuffer(this.vorticityTexture.tex);
     }
 
-    /**
-     * 
-     * @param {Dict} acceleration 加速度 x, y, z 三个轴的加速度
-     * @param {*} deltaTime 
-     * @param {*} constrainsIterations 
-     * @param {bool} correction         是否开启 "Surface tension" correction
-     */
-    simulate(acceleration, deltaTime, constrainsIterations, correction) {
+    simulate(controls) {
+
+        const ax = controls.ax;
+        const ay = controls.ay;
+        const az = controls.az;
+        const deltaTime = controls.deltaTime;
+        const constrainsIterations = controls.solverIterations;
+        const correction = controls.correction;
+        const relaxParameter = controls.relaxParameter;
+        const tensileK = controls.tensileK;
+        const viscosity = controls.viscosity;
+        const vorticity = controls.vorticity;
+
+        const restDensity = 2000;
 
         // 根据施加外力后的粒子速度，预测粒子位置，存储于 tmpPositionBuffer
-        this.predictPositions(acceleration, deltaTime);
+        this.predictPositions(ax, ay, az, deltaTime);
         
         // 根据预测的粒子位置, hush to grid, 数据存储于 gridsBuffer 中
         this.searchNeighbords();
@@ -135,34 +128,57 @@ class PBF {
         // 迭代约束
         for (let iter = 0; iter < constrainsIterations; iter++) {
             // 计算每个粒子的密度，以及对应的 lambda
-            this.calculateLambda();
+            this.calculateLambda(relaxParameter, restDensity);
             // 计算 ΔP，并更新位置，写入 tmpPositionBuffer
-            // 由于不能写入 tmpvelocityBuffer， 也不能覆盖掉 positionBuffer, 所以我们暂时写入
+            // 由于不能写入 tmpPositionBuffer， 也不能覆盖掉 positionBuffer, 所以我们暂时写入
             // velocityBuffer， 因为 velocityBuffer 中已经没有用了，后面要重新计算的。
-            this.calculateDeltaP(correction);
-
+            this.calculateDeltaP(correction, tensileK, restDensity);
             // 将 velocityBuffer 中的数据写入 tmpPositionBuffer
             this.copyBetweenTexture(this.velocityTexture, this.tmpPositionBuffer);
         }
-
-        // 根据新位置计算新的速度，
-        // this.calculateVelocity(this.tmpvelocityBuffer);
-        this.calculateVelocity(deltaTime);
-        // 计算粘度，同时更新速度
-        this.calculateViscosity();
-
+        // 根据新位置计算新的速度，存储于 this.tmpvelocityBuffer
+        this.integrateVelocity(deltaTime);
+        // 计算粒子的旋度存储于 this.vorticityBuffer
+        this.calculateVorticity();
+        // 计算粘度，同时更新速度，存储于 this.velocityBuffer
+        this.calculateViscosity(viscosity);
+        // 施加 VC，将新速度存储于 this.tmpVelocityBuffer
+        this.applyVorticity(deltaTime, vorticity);
+        // 将 this.tmpVelocityBuffer 复制到 this.velocityBuffer
+        this.copyBetweenTexture(this.tmpVelocityTexture, this.velocityBuffer);
         // Update the positions.
         this.copyBetweenTexture(this.tmpPositionTexture, this.positionBuffer);
     }
 
-    predictPositions(acceleration, deltaTime) {
+    // 返回所有顶点的 .obj 数据
+    exportFrame() {
+        const fb = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.positionTexture.tex, 0);
+        gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+        gl.readBuffer(gl.COLOR_ATTACHMENT0);
+        var data = new Float32Array(this.particlesTextureSize * this.particlesTextureSize * 4);
+        gl.readPixels(0, 0, this.particlesTextureSize, this.particlesTextureSize, gl.RGBA, gl.FLOAT, data);
+
+        let objData = "#Output frame\n";
+        for (let i = 0; i < data.length / 4; i++) {
+            if (data[4 * i] == 0 && data[4 * i + 1] == 0 && data[4 * i + 2] == 0)
+                continue;
+            objData += 'v ' + data[4 * i].toString() + " " + data[4 * i + 1].toString() + " " + data[4 * i+2].toString() + '\n';
+        }
+        // console.log(objData);
+        // return objData;
+        return data;
+    }
+
+    predictPositions(ax, ay, az, deltaTime) {
         // predictPositions, 根据外力(eg. gravity) 计算新位置
         // 存储于 tmpPositionBuffer(tmpPositionTexture) 中
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.tmpPositionBuffer);
         gl.viewport(0, 0, this.particlesTextureSize, this.particlesTextureSize);
         this.predictPositionsProgram.use();
         this.predictPositionsProgram.setUniform1f("uDeltaTime", deltaTime);
-        this.predictPositionsProgram.setUniform3f("uAcceleration", acceleration.x, acceleration.y, acceleration.z);
+        this.predictPositionsProgram.setUniform3f("uAcceleration", ax, ay, az);
         this.predictPositionsProgram.bindTexture("uTexturePosition", this.positionTexture, 0);
         this.predictPositionsProgram.bindTexture("uTextureVelocity", this.velocityTexture, 1);
 
@@ -171,7 +187,9 @@ class PBF {
             y: 0,
             z: 0,
         }
-        this.predictPositionsProgram.setUniform1f("uForcePosition", this.forcePosition);
+        const forcePosition = 0.0;
+        const forcePositionDelta = 0.1;
+        this.predictPositionsProgram.setUniform1f("uForcePosition", forcePosition);
         // if (this.forcePosition >= 20 || this.forcePosition < 1.0) {
         //     this.forcePositionDelta = - this.forcePositionDelta;
         // }
@@ -198,9 +216,8 @@ class PBF {
 
         this.searchNeighbordsProgram.use();
         this.searchNeighbordsProgram.bindTexture("uTexturePosition", this.tmpPositionTexture, 0);
-        this.searchNeighbordsProgram.setUniform1f("uVoxelTextureSize", this.gridsTextureSize);
+        this.searchNeighbordsProgram.setUniform1f("uGridTextureSize", this.gridsTextureSize);
         this.searchNeighbordsProgram.setUniform1f("uBucketSize", this.bucketSize);
-        this.searchNeighbordsProgram.setUniform1f("uBucketNum", this.gridsTextureSize / this.bucketSize);
         this.searchNeighbordsProgram.setUniform1f("uTotalParticles", this.totalParticles);
 
         // pass 1
@@ -234,7 +251,7 @@ class PBF {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 
-    calculateLambda() {
+    calculateLambda(relaxParameter, restDensity) {
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.lambdaBuffer);
         gl.viewport(0, 0, this.particlesTextureSize, this.particlesTextureSize);
         this.calculateLambdaProgram.use();
@@ -243,69 +260,93 @@ class PBF {
     
         this.calculateLambdaProgram.setUniform1f("uGridTextureSize", this.gridsTextureSize);        // gridTexture 纹理大小
         this.calculateLambdaProgram.setUniform1f("uBucketSize", this.bucketSize);                   // 粒子活动范围
-        this.calculateLambdaProgram.setUniform1f("uBucketNum", this.gridsTextureSize / this.bucketSize);
 
-        this.calculateLambdaProgram.setUniform1f("uPolyKernelConstant", this.polyConstant);
-        this.calculateLambdaProgram.setUniform1f("uSpikyGradConstant", this.spikyGradConstant);
+        this.calculateLambdaProgram.setUniform1f("uParticleMass", restDensity);
         this.calculateLambdaProgram.setUniform1f("uKernelRadius", this.kernelRadius);
-        this.calculateLambdaProgram.setUniform1f("uRestDensity", this.restDensity);
-        this.calculateLambdaProgram.setUniform1f("uRelaxParameter", this.relaxParameter);
+        this.calculateLambdaProgram.setUniform1f("uRestDensity", restDensity);
+        this.calculateLambdaProgram.setUniform1f("uRelaxParameter", relaxParameter);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.POINTS, 0, this.totalParticles);
     }
 
-    calculateDeltaP(correction) {
+    calculateDeltaP(correction, tensileK, restDensity) {
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.velocityBuffer);
         gl.viewport(0, 0, this.particlesTextureSize, this.particlesTextureSize);
         this.calculateDeltaPProgram.use();
         this.calculateDeltaPProgram.bindTexture("uTexturePosition", this.tmpPositionTexture, 0);
         this.calculateDeltaPProgram.bindTexture("uNeighbors", this.gridsTexture, 1);
         this.calculateDeltaPProgram.bindTexture("uLambda", this.lambdaTexture, 2);
-        this.calculateDeltaPProgram.setUniform1f("uVoxelTextureSize", this.gridsTextureSize);
+        this.calculateDeltaPProgram.setUniform1f("uGridTextureSize", this.gridsTextureSize);
         this.calculateDeltaPProgram.setUniform1f("uBucketSize", this.bucketSize);
-        this.calculateDeltaPProgram.setUniform1f("uBucketNum", this.gridsTextureSize / this.bucketSize);
         this.calculateDeltaPProgram.setUniform1f("uKernelRadius", this.kernelRadius);
-        this.calculateDeltaPProgram.setUniform1f("uRestDensity", this.restDensity);
-        this.calculateDeltaPProgram.setUniform1f("uSpikyGradConstant", this.spikyGradConstant);
+        this.calculateDeltaPProgram.setUniform1f("uRestDensity", restDensity);
         // lambda correction
         this.calculateDeltaPProgram.setUniform1i("uCorrection", correction);
-        this.calculateDeltaPProgram.setUniform1f("uTensileK", this.tensileK);
-        this.calculateDeltaPProgram.setUniform1f("uTensileDistance", this.tensileDistance);
-        this.calculateDeltaPProgram.setUniform1f("uTensilePower", this.tensilePower);
+        this.calculateDeltaPProgram.setUniform1f("uTensileK", tensileK);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.POINTS, 0, this.totalParticles);
     }
 
     // 根据新位置计算新的速度，存储于 tmpvelocityBuffer
-    calculateVelocity(deltaTime) {
+    integrateVelocity(deltaTime) {
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.tmpVelocityBuffer);
         gl.viewport(0, 0, this.particlesTextureSize, this.particlesTextureSize);
-        this.calculateVelocityProgram.use();
-        this.calculateVelocityProgram.setUniform1f("uDeltaTime", deltaTime);
-        this.calculateVelocityProgram.bindTexture("uTexturePosition", this.tmpPositionTexture, 0);
-        this.calculateVelocityProgram.bindTexture("uTexturePositionOld", this.positionTexture, 1);
+        this.integrateVelocityProgram.use();
+        this.integrateVelocityProgram.setUniform1f("uDeltaTime", deltaTime);
+        this.integrateVelocityProgram.bindTexture("uTexturePosition", this.tmpPositionTexture, 0);
+        this.integrateVelocityProgram.bindTexture("uTexturePositionOld", this.positionTexture, 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.POINTS, 0, this.totalParticles);
     }
 
-    calculateViscosity() {
+    calculateViscosity(viscosity) {
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.velocityBuffer);
         gl.viewport(0, 0, this.particlesTextureSize, this.particlesTextureSize);
         this.calculateViscosityProgram.use();
         this.calculateViscosityProgram.bindTexture("uTexturePosition", this.tmpPositionTexture, 0);
         this.calculateViscosityProgram.bindTexture("uTextureVelocity", this.tmpVelocityTexture, 1);
         this.calculateViscosityProgram.bindTexture("uNeighbors", this.gridsTexture, 2);
-        this.calculateViscosityProgram.setUniform1f("uVoxelTextureSize", this.gridsTextureSize);
+        this.calculateViscosityProgram.setUniform1f("uGridTextureSize", this.gridsTextureSize);
         this.calculateViscosityProgram.setUniform1f("uBucketSize", this.bucketSize);
-        this.calculateViscosityProgram.setUniform1f("uBucketNum", this.gridsTextureSize / this.bucketSize);
         this.calculateViscosityProgram.setUniform1f("uKernelRadius", this.kernelRadius);
-        this.calculateViscosityProgram.setUniform1f("uRestDensity", this.restDensity);
-        this.calculateViscosityProgram.setUniform1f("uViscosityConstant", this.viscosityConstant);
+        this.calculateViscosityProgram.setUniform1f("uViscosity", viscosity);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.POINTS, 0, this.totalParticles);
     }
 
+    calculateVorticity() {
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.vorticityBuffer);
+        gl.viewport(0, 0, this.particlesTextureSize, this.particlesTextureSize);
+        this.calculateVorticityProgram.use();
+        this.calculateVorticityProgram.bindTexture("uTexturePosition", this.tmpPositionTexture, 0);
+        this.calculateVorticityProgram.bindTexture("uTextureVelocity", this.tmpVelocityTexture, 1);
+        this.calculateVorticityProgram.bindTexture("uNeighbors", this.gridsTexture, 2);
+        this.calculateVorticityProgram.setUniform1f("uGridTextureSize", this.gridsTextureSize);
+        this.calculateVorticityProgram.setUniform1f("uBucketSize", this.bucketSize);
+        this.calculateVorticityProgram.setUniform1f("uKernelRadius", this.kernelRadius);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.POINTS, 0, this.totalParticles);
+    }
     
+    applyVorticity(deltaTime, vorticity) {
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.tmpVelocityBuffer);
+        gl.viewport(0, 0, this.particlesTextureSize, this.particlesTextureSize);
+        this.applyVorticityProgram.use();
+        this.applyVorticityProgram.bindTexture("uTexturePosition", this.tmpPositionTexture, 0);
+        this.applyVorticityProgram.bindTexture("uTextureVelocity", this.velocityTexture, 1);
+        this.applyVorticityProgram.bindTexture("uTextureVorticity", this.vorticityTexture, 2);
+        this.applyVorticityProgram.bindTexture("uNeighbors", this.gridsTexture, 3);
+
+        this.applyVorticityProgram.setUniform1f("uGridTextureSize", this.gridsTextureSize);
+        this.applyVorticityProgram.setUniform1f("uBucketSize", this.bucketSize);
+        this.applyVorticityProgram.setUniform1f("uKernelRadius", this.kernelRadius);
+        this.applyVorticityProgram.setUniform1f("uDeltaTime", deltaTime);
+        this.applyVorticityProgram.setUniform1f("uVorticity", vorticity);
+
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.POINTS, 0, this.totalParticles);
+    }
+
     copyBetweenTexture(srcTexture, dstBuffer) {
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, dstBuffer);
         gl.viewport(0, 0, this.particlesTextureSize, this.particlesTextureSize);
