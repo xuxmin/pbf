@@ -39,7 +39,7 @@ var controls = {
     viscosity: 0.01,
     vorticity: 0.01,
     ax: 0,
-    ay: 0,
+    ay: -2,
     az: 0,
 };
 
