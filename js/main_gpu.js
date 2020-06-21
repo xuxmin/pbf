@@ -24,14 +24,15 @@ const renderRectProgram = new Shader(vsRect, fsRect);
 
 const pbf = new PBF();
 const rect = new Rectangle(renderRectProgram);
+const solid_rect = new SolidRectangle(renderRectProgram);
 const camera = new Camera(canvas);
 
 // 控制参数
 var controls = {
     resolution: 32, // 粒子运动范围 0-resolution, 这个范围映射到屏幕上
-    particleSize : 10,
+    particleSize : 7,
     particlesNum: 5000,
-    solverIterations: 3,
+    solverIterations: 4,
     deltaTime: 0.02,
     relaxParameter: 0.05,
     correction: true,
@@ -41,6 +42,13 @@ var controls = {
     ax: 0,
     ay: -2,
     az: 0,
+    addObstacle: true,
+    obstacleX: 0.5,
+    obstacleY: 0.2,
+    obstacleZ: 0.5,
+    sizeX: 0.3,
+    sizeY: 0.1,
+    sizeZ: 0.8
 };
 
 
@@ -54,7 +62,7 @@ const initGUI = (gui) => {
     gui.add(controls, 'deltaTime', 0.01, 0.1).step(0.01);
     gui.add(controls, 'resolution', 32, 64).step(16);
     gui.add(controls, 'particleSize', 1, 20).step(1);
-    gui.add(controls, 'particlesNum', 5000, 20000).step(1000);
+    gui.add(controls, 'particlesNum', 5000, 50000).step(5000);
     gui.add(controls, 'solverIterations', 1, 5).step(1);
     gui.add(controls, 'relaxParameter', 0.05, 0.05);
     gui.add(controls, 'viscosity', 0, 1).step(0.01);
@@ -66,6 +74,14 @@ const initGUI = (gui) => {
     f1.add(controls, 'ax', -10, 10).step(1);
     f1.add(controls, 'ay', -10, 10),step(1);
     f1.add(controls, 'az', -10, 10),step(1);
+    var f2 = gui.addFolder('Obstacle');
+    f2.add(controls, 'addObstacle');
+    f2.add(controls, 'obstacleX', 0, 1).step(0.1);
+    f2.add(controls, 'obstacleY', 0, 1).step(0.1);
+    f2.add(controls, 'obstacleZ', 0, 1).step(0.1);
+    f2.add(controls, 'sizeX', 0, 1.0).step(0.1);
+    f2.add(controls, 'sizeY', 0, 0.5).step(0.1);
+    f2.add(controls, 'sizeZ', 0, 1.0).step(0.1);
     return gui;
 }
 
@@ -122,9 +138,21 @@ const render = () => {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.drawArrays(gl.POINTS, 0, pbf.totalParticles);
-    gl.disable(gl.DEPTH_TEST);
 
-    rect.render(camera);
+    rect.render(camera, {x:0, y:0, z:0}, {x:1, y:1, z:1}, 0);
+        if (controls.addObstacle) {
+        solid_rect.render(camera, {
+            x: controls.obstacleX,
+            y: controls.obstacleY,
+            z: controls.obstacleZ
+        }, {
+            x: controls.sizeX,
+            y: controls.sizeY,
+            z: controls.sizeZ
+        }, 1);
+    }
+
+    gl.disable(gl.DEPTH_TEST);
 
     myStats.update();
 }

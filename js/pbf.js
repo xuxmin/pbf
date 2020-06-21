@@ -132,7 +132,15 @@ class PBF {
             // 计算 ΔP，并更新位置，写入 tmpPositionBuffer
             // 由于不能写入 tmpPositionBuffer， 也不能覆盖掉 positionBuffer, 所以我们暂时写入
             // velocityBuffer， 因为 velocityBuffer 中已经没有用了，后面要重新计算的。
-            this.calculateDeltaP(correction, tensileK, restDensity);
+            this.calculateDeltaP(correction, tensileK, restDensity, controls.addObstacle, {
+                x: controls.obstacleX,
+                y: controls.obstacleY,
+                z: controls.obstacleZ,
+            }, {
+                x: controls.sizeX,
+                y: controls.sizeY,
+                z: controls.sizeZ,
+            });
             // 将 velocityBuffer 中的数据写入 tmpPositionBuffer
             this.copyBetweenTexture(this.velocityTexture, this.tmpPositionBuffer);
         }
@@ -190,11 +198,6 @@ class PBF {
         const forcePosition = 0.0;
         const forcePositionDelta = 0.1;
         this.predictPositionsProgram.setUniform1f("uForcePosition", forcePosition);
-        // if (this.forcePosition >= 20 || this.forcePosition < 1.0) {
-        //     this.forcePositionDelta = - this.forcePositionDelta;
-        // }
-        // this.forcePosition += this.forcePositionDelta;
-        // console.log(this.forcePosition);
         this.predictPositionsProgram.setUniform3f("uForceDirection", forceDirection.x, forceDirection.y, forceDirection.z);
 
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -269,7 +272,7 @@ class PBF {
         gl.drawArrays(gl.POINTS, 0, this.totalParticles);
     }
 
-    calculateDeltaP(correction, tensileK, restDensity) {
+    calculateDeltaP(correction, tensileK, restDensity, collide=false, obsCenter=null, obsSize=null) {
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.velocityBuffer);
         gl.viewport(0, 0, this.particlesTextureSize, this.particlesTextureSize);
         this.calculateDeltaPProgram.use();
@@ -280,6 +283,10 @@ class PBF {
         this.calculateDeltaPProgram.setUniform1f("uBucketSize", this.bucketSize);
         this.calculateDeltaPProgram.setUniform1f("uKernelRadius", this.kernelRadius);
         this.calculateDeltaPProgram.setUniform1f("uRestDensity", restDensity);
+        // collide
+        this.calculateDeltaPProgram.setUniform1f("uCollide", collide);
+        this.calculateDeltaPProgram.setUniform3f("uCenterPosition", obsCenter.x, obsCenter.y, obsCenter.z);
+        this.calculateDeltaPProgram.setUniform3f("uSize", obsSize.x, obsSize.y, obsSize.z);
         // lambda correction
         this.calculateDeltaPProgram.setUniform1i("uCorrection", correction);
         this.calculateDeltaPProgram.setUniform1f("uTensileK", tensileK);

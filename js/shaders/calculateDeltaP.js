@@ -16,6 +16,12 @@ uniform float uRestDensity;
 uniform bool  uCorrection;
 uniform float uTensileK;
 
+
+// obstacle 信息
+uniform float uCollide;         // 是否进行冲突检测
+uniform vec3 uCenterPosition;   // 中心位置
+uniform vec3 uSize;             // 长宽高
+
 float h2;
 
 out vec4 colorData;
@@ -104,7 +110,6 @@ void main() {
     vec3 deltaPosition = vec3(0.);
 
     // 遍历所有相邻的 grid
-
     for (int i = 0; i < 27; i++) {
 
         // 获得对应的 gridIndex 纹理坐标
@@ -161,6 +166,43 @@ void main() {
         endPosition.z = uBucketSize - 0.2;
     if (endPosition.z < 0.2)
         endPosition.z = 0.2;
+
+    // 冲突检测
+    if (uCollide == 1.0)  {
+        float up = (uCenterPosition.y + uSize.y / 2.0) * uBucketSize;
+        float down = (uCenterPosition.y - uSize.y / 2.0) * uBucketSize;
+        float back = (uCenterPosition.x - uSize.x / 2.0) * uBucketSize;
+        float front = (uCenterPosition.x + uSize.x / 2.0) * uBucketSize;
+        float left = (uCenterPosition.z - uSize.z / 2.0) * uBucketSize;
+        float right = (uCenterPosition.z + uSize.z / 2.0) * uBucketSize;
+        float x = endPosition.x;
+        float y = endPosition.y;
+        float z = endPosition.z;
+        // 与上面相撞
+        if (x >= back && x <= front && z >= left && z <= right && y >= up - 0.1 && y < up) {
+            endPosition.y = up;
+        } 
+        // 与下面相撞
+        else if (x >= back && x <= front && z >= left && z <= right && y <= down + 0.1 && y > down) {
+            endPosition.y = down;
+        }
+        // 与左面相撞
+        else if (x >= back && x <= front && y >= down && y <= up && z <= left + 0.1 && z > left) {
+            endPosition.z = left;
+        }
+        // 与右面相撞
+        else if (x >= back && x <= front && y >= down && y <= up && z >= right - 0.1 && z < right) {
+            endPosition.z = right;
+        }
+        // 与后面相撞
+        else if (y >= down && y <= up && z >= left && z <= right && x <= back + 0.1 && x > back) {
+            endPosition.x = back;
+        }
+        // 与前面相撞
+        else if (y >= down && y <= up && z >= left && z <= right && x >= front - 0.1 && x < front) {
+            endPosition.x = front;
+        }
+    }
 
     colorData = vec4(endPosition, texture(uLambda, index).g + 1.);
 }
