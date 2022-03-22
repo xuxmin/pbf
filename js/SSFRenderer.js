@@ -34,8 +34,8 @@ class SSFRender {
     }
 
     render() {
-        this.getThick();
-        this.copyBetweenTexture(this.thickTexture, null);
+        this.getDepth();
+        this.copyBetweenTexture(this.depthTexture, null);
     }
 
     getDepth() {
@@ -79,5 +79,17 @@ class SSFRender {
         this.copyTextureProgram.bindTexture("uTexture", srcTexture, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    exportTexture(texture) {
+        const fb = gl.createFramebuffer();
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture.tex, 0);
+        gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+        gl.readBuffer(gl.COLOR_ATTACHMENT0);
+        var data = new Float32Array(this.width * this.height * 4);
+        gl.readPixels(0, 0, this.width, this.height, gl.RGBA, gl.FLOAT, data);
+        
+        console.log(data)
+        return data;
     }
 };
