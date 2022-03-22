@@ -37,6 +37,10 @@ class Rectangle {
     }
 
     render(camera, center, size, color) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.height, canvas.height);
+        gl.enable(gl.DEPTH_TEST);
+        
         this.shader.use();
         this.shader.setUniformMatrix4fv("uCameraMatrix", camera.cameraTransformMatrix);
         this.shader.setUniformMatrix4fv("uPMatrix", camera.perspectiveMatrix);
@@ -91,6 +95,10 @@ class SolidRectangle {
     }
 
     render(camera, center, size, color) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.height, canvas.height);
+        gl.enable(gl.DEPTH_TEST);
+
         this.shader.use();
         this.shader.setUniformMatrix4fv("uCameraMatrix", camera.cameraTransformMatrix);
         this.shader.setUniformMatrix4fv("uPMatrix", camera.perspectiveMatrix);

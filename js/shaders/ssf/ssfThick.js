@@ -1,4 +1,4 @@
-const vsParticles = `#version 300 es
+const vsSSFThick = `#version 300 es
 uniform mat4 uCameraMatrix;
 uniform mat4 uPMatrix;
 
@@ -8,7 +8,7 @@ uniform sampler2D uTexturePosition;     // 2D 数组, 采样获得的 RGBA 对�
 uniform float uScale;                   // pbfResolution
 
 out vec4 viewPos;
-out vec4 glPos;
+
 
 void main() 
 {
@@ -31,25 +31,18 @@ void main()
     
     gl_Position = uPMatrix * viewPos;
 
-    glPos = gl_Position;
-
     float height = 500.0 / 2.0;
     float top = 0.00315;
     float near = 0.01;
     float radius = 0.05;            // 粒子半径
     gl_PointSize = height * near * radius / (- viewPos.z * top);
-    
-    // gl_PointSize = particleSize;
 }
 `;
 
 
-const fsParticles = `#version 300 es
+const fsSSFThick = `#version 300 es
     precision highp float;
     uniform mat4 uPMatrix;
-
-    in vec4 viewPos;    // 粒子中心在相机空间坐标
-    in vec4 glPos;
 
     out vec4 color;
 
@@ -70,6 +63,6 @@ const fsParticles = `#version 300 es
         vec3 lightDir = vec3(0., 0., 1.);
         float thickness = 2. * radius * dot(vec3(xy, z), lightDir);
 
-        color = vec4(0., 0., 0., thickness);
+        color = vec4(thickness, 0., 0., 1.);
     }
 `;

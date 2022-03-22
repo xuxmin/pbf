@@ -18,7 +18,7 @@ const frame_label = document.getElementById("current-frame");
 
 const gui = new dat.gui.GUI();
 const myStats = new Stats();
-const renderParticlesProgram = new Shader(vsParticles, fsColor);
+const renderParticlesProgram = new Shader(vsParticles, fsParticles);
 const renderRectProgram = new Shader(vsRect, fsRect);
 
 
@@ -26,6 +26,8 @@ const pbf = new PBF();
 const rect = new Rectangle(renderRectProgram);
 const solid_rect = new SolidRectangle(renderRectProgram);
 const camera = new Camera(canvas);
+const ssfRender = new SSFRender(canvas, pbf, camera);
+
 
 // 控制参数
 var controls = {
@@ -72,8 +74,8 @@ const initGUI = (gui) => {
     f0.add(controls, 'tensileK', 0, 50).step(1);
     var f1 = gui.addFolder('acceleration');
     f1.add(controls, 'ax', -10, 10).step(1);
-    f1.add(controls, 'ay', -10, 10),step(1);
-    f1.add(controls, 'az', -10, 10),step(1);
+    f1.add(controls, 'ay', -10, 10).step(1);
+    f1.add(controls, 'az', -10, 10).step(1);
     var f2 = gui.addFolder('Obstacle');
     f2.add(controls, 'addObstacle');
     f2.add(controls, 'obstacleX', 0, 1).step(0.1);
@@ -113,6 +115,9 @@ const initParticles = () => {
     const start = pbfResolution / 2 - size / 2;
     const end = pbfResolution / 2 + size / 2;
 
+    // particlesPosition.push(0, 10, 10, 1);
+    // particlesPosition.push(30, 30, 30, 1);
+    // particlesVelocity.push(0, 0, 0, 0); // 对应纹理的 RGBA
     for (let i = start; i < end; i++) {
         for (let j = pbfResolution - size - 2; j < pbfResolution - 2; j++) {
             for (let k = start; k < end; k++) {
@@ -124,23 +129,20 @@ const initParticles = () => {
     pbf.init(particlesPosition, particlesVelocity, pbfResolution);
 }
 
+
+// 初始化 SSFRender
+const initSSFRender = () => {
+    ssfRender.init();
+}
+
+
 const render = () => {
     camera.updateCamera(35, 1, 2.5);
-    //Render particles
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-    gl.viewport(0, 0, canvas.height, canvas.height);
-    renderParticlesProgram.use();
-    renderParticlesProgram.bindTexture("uTexturePosition", pbf.positionTexture, 0);
-    renderParticlesProgram.setUniform1f("uScale", controls.resolution); // 用于将坐标返回转换到 [0, 1]
-    renderParticlesProgram.setUniform1f("particleSize", controls.particleSize);
-    renderParticlesProgram.setUniformMatrix4fv("uCameraMatrix", camera.cameraTransformMatrix);
-    renderParticlesProgram.setUniformMatrix4fv("uPMatrix", camera.perspectiveMatrix);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.DEPTH_TEST);
-    gl.drawArrays(gl.POINTS, 0, pbf.totalParticles);
+
+    ssfRender.render(pbf, camera);
 
     rect.render(camera, {x:0, y:0, z:0}, {x:1, y:1, z:1}, 0);
-        if (controls.addObstacle) {
+    if (controls.addObstacle) {
         solid_rect.render(camera, {
             x: controls.obstacleX,
             y: controls.obstacleY,
@@ -189,6 +191,7 @@ const main = () => {
     initParticles();
     initStats(myStats);
     initGUI(gui);
+    initSSFRender();
     step();
 }
 

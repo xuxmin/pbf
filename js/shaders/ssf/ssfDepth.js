@@ -1,14 +1,11 @@
-const vsParticles = `#version 300 es
+const vsSSFDepth = `#version 300 es
 uniform mat4 uCameraMatrix;
 uniform mat4 uPMatrix;
-
-// uniform float particleSize;
 
 uniform sampler2D uTexturePosition;     // 2D 数组, 采样获得的 RGBA 对应 x y 1 1
 uniform float uScale;                   // pbfResolution
 
 out vec4 viewPos;
-out vec4 glPos;
 
 void main() 
 {
@@ -31,25 +28,20 @@ void main()
     
     gl_Position = uPMatrix * viewPos;
 
-    glPos = gl_Position;
-
     float height = 500.0 / 2.0;
     float top = 0.00315;
     float near = 0.01;
     float radius = 0.05;            // 粒子半径
     gl_PointSize = height * near * radius / (- viewPos.z * top);
-    
-    // gl_PointSize = particleSize;
 }
 `;
 
 
-const fsParticles = `#version 300 es
+const fsSSFDepth = `#version 300 es
     precision highp float;
     uniform mat4 uPMatrix;
 
     in vec4 viewPos;    // 粒子中心在相机空间坐标
-    in vec4 glPos;
 
     out vec4 color;
 
@@ -66,10 +58,12 @@ const fsParticles = `#version 300 es
         // 根据 gl_PointCoord 计算出当前着色的点在相机空间的坐标
         vec2 xy = (gl_PointCoord - vec2(0.5)) * 2.;
         float z = sqrt(1.0 - dot(xy, xy));
+        vec4 nviewPos = vec4(viewPos.xyz + vec3(xy, z) * radius, 1.);
+        vec4 nclipPos = uPMatrix * viewPos;
 
-        vec3 lightDir = vec3(0., 0., 1.);
-        float thickness = 2. * radius * dot(vec3(xy, z), lightDir);
-
-        color = vec4(0., 0., 0., thickness);
+        vec4 ndcPos = nclipPos / nclipPos.w;
+        gl_FragDepth = 0.5 * (gl_DepthRange.diff * ndcPos.z + gl_DepthRange.far + gl_DepthRange.near);
+        
+        color = vec4(-nviewPos.z, 0., 0., 1.0);
     }
 `;
