@@ -44,7 +44,7 @@ var controls = {
     ax: 0,
     ay: -2,
     az: 0,
-    addObstacle: true,
+    addObstacle: false,
     obstacleX: 0.5,
     obstacleY: 0.2,
     obstacleZ: 0.5,

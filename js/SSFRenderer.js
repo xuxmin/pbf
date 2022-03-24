@@ -8,33 +8,48 @@ class SSFRender {
         // shader program
         this.getDepthProgram = null;
         this.getThickProgram = null;
+        this.restoreNormalProgram = null;
+        this.smoothDepthProgram = null;
         this.copyTextureProgram = null;             // 用于复制纹理的
 
         this.depthTexture = null;               // 存储屏幕空间深度
+        this.smoothDepthTexture = null;
         this.thickTexture = null;               // 存储屏幕空间厚度
+        this.normalTexture = null;              // 存储恢复的法线
         
         this.depthBuffer = null;
         this.thickBuffer = null;
-
+        this.normalBuffer = null;
+        this.smoothDepthBuffer = null;
     }
 
     init() {
         this.getDepthProgram = new Shader(vsSSFDepth, fsSSFDepth);
         this.getThickProgram = new Shader(vsSSFThick, fsSSFThick);
+        this.restoreNormalProgram = new Shader(vsSSFRestoreNormal, fsSSFRestoreNormal);
+        this.smoothDepthProgram = new Shader(vsSSFSmoothDepth, fsSSFSmoothDepth)
         this.copyTextureProgram = new Shader(vsTextureColor, fsTextureColor);
-
+        
         this.depthTexture = new Texture();
         this.depthTexture.generate(this.width, this.height, gl.RGBA32F, gl.RGBA, gl.NEAREST, gl.NEAREST, gl.FLOAT, null);
+        this.smoothDepthTexture = new Texture();
+        this.smoothDepthTexture.generate(this.width, this.height, gl.RGBA32F, gl.RGBA, gl.NEAREST, gl.NEAREST, gl.FLOAT, null);
         this.thickTexture = new Texture();
         this.thickTexture.generate(this.width, this.height, gl.RGBA32F, gl.RGBA, gl.NEAREST, gl.NEAREST, gl.FLOAT, null);
+        this.normalTexture = new Texture();
+        this.normalTexture.generate(this.width, this.height, gl.RGBA32F, gl.RGBA, gl.NEAREST, gl.NEAREST, gl.FLOAT, null);
 
         // create framebuffer and bind to textures
         this.depthBuffer = createDrawFramebuffer(this.depthTexture.tex, true, false);
         this.thickBuffer = createDrawFramebuffer(this.thickTexture.tex, true, false);
+        this.normalBuffer = createDrawFramebuffer(this.normalTexture.tex, false, false);
+        this.smoothDepthBuffer = createDrawFramebuffer(this.smoothDepthTexture.tex, false, false);
     }
 
     render() {
         this.getDepth();
+        // this.smoothDepth();
+        // this.restoreNormal();
         this.copyBetweenTexture(this.depthTexture, null);
     }
 
@@ -47,10 +62,13 @@ class SSFRender {
         this.getDepthProgram.setUniform1f("uScale", controls.resolution); // 用于将坐标返回转换到 [0, 1]
         this.getDepthProgram.setUniformMatrix4fv("uCameraMatrix", this.camera.cameraTransformMatrix);
         this.getDepthProgram.setUniformMatrix4fv("uPMatrix", this.camera.perspectiveMatrix);
-
+        
+        gl.clearColor(100.0, 100.0, 100.0, 100.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.enable(gl.DEPTH_TEST);
         gl.drawArrays(gl.POINTS, 0, this.pbf.totalParticles);
+        gl.disable(gl.DEPTH_TEST);              // 深度还是有些问题
+        gl.clearColor(1.0, 1.0, 1.0, 1.0);
     }
 
     getThick() {
@@ -68,12 +86,39 @@ class SSFRender {
         gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
         gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE);
         gl.disable(gl.DEPTH_TEST);
-
         gl.drawArrays(gl.POINTS, 0, this.pbf.totalParticles);
+
+        gl.disable(gl.BLEND);
+        gl.enable(gl.DEPTH_TEST);
+    }
+
+    restoreNormal() {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.normalBuffer);
+        gl.viewport(0, 0, this.height, this.width);
+        this.restoreNormalProgram.use();
+        this.restoreNormalProgram.bindTexture("uTexture", this.smoothDepthTexture, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.disable(gl.DEPTH_TEST);
+        gl.disable(gl.BLEND);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.enable(gl.DEPTH_TEST);
+    }
+
+    smoothDepth() {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.smoothDepthBuffer);
+        gl.viewport(0, 0, this.height, this.width);
+        this.smoothDepthProgram.use();
+        this.smoothDepthProgram.bindTexture("uTexture", this.depthTexture, 0);
+        gl.clearColor(100.0, 100.0, 100.0, 100.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.disable(gl.DEPTH_TEST);
+        gl.disable(gl.BLEND);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.enable(gl.DEPTH_TEST);
     }
     
     copyBetweenTexture(srcTexture, dstBuffer) {
-        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, dstBuffer);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, dstBuffer);
         gl.viewport(0, 0, this.height, this.width);
         this.copyTextureProgram.use();
         this.copyTextureProgram.bindTexture("uTexture", srcTexture, 0);
