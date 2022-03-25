@@ -32,10 +32,9 @@ float getZ(int x, int y) {
 
 float bilateral(int x, int y) {
 
-    // 小滤波核平滑多次???
-    int kernel_r = 5;
-    float blur_r = 1. / 3.;
-    float blur_z = 1. / 0.1;    // 这个参数是什么意思? 看一下
+    int kernel_r = 20;
+    float blur_r = 1. / 10.;
+    float blur_z = 1. / 10.;
 
 	float z = getZ(x, y);
 	float sum = 0., wsum = 0.;

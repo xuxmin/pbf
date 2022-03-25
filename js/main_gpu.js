@@ -61,7 +61,7 @@ var running = false;
 
 const initGUI = (gui) => {
     gui.remember(controls);
-    gui.add(controls, 'deltaTime', 0.01, 0.1).step(0.01);
+    gui.add(controls, 'deltaTime', 0.00, 0.1).step(0.01);
     gui.add(controls, 'resolution', 32, 64).step(16);
     gui.add(controls, 'particleSize', 1, 20).step(1);
     gui.add(controls, 'particlesNum', 5000, 50000).step(5000);

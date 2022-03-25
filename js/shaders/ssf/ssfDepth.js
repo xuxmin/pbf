@@ -47,18 +47,19 @@ const fsSSFDepth = `#version 300 es
 
     void main() 
     {
+        vec2 xy = gl_PointCoord * 2. - 1.0;
+        float r2 = dot(xy, xy);
+        
         // 丢弃圆外的像素, 保证绘制球体而不是正方形
-        if (dot(gl_PointCoord - vec2(0.5), gl_PointCoord - vec2(0.5)) > 0.25) {
+        if (r2 > 1.0) {
             discard;
-            return;
+            // return;
         }
-
-        // BUG: 为什么调整半径没有用???
+        
         float radius = 0.05;            // 粒子半径
         
         // 根据 gl_PointCoord 计算出当前着色的点在相机空间的坐标
-        vec2 xy = (gl_PointCoord - vec2(0.5)) * 2.;
-        float z = sqrt(1.0 - dot(xy, xy));
+        float z = sqrt(1.0 - r2);
         vec4 nviewPos = vec4(viewPos.xyz + vec3(xy, z) * radius, 1.);
         vec4 nclipPos = uPMatrix * viewPos;
 

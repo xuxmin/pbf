@@ -48,9 +48,9 @@ class SSFRender {
 
     render() {
         this.getDepth();
-        // this.smoothDepth();
-        // this.restoreNormal();
-        this.copyBetweenTexture(this.depthTexture, null);
+        this.smoothDepth();
+        this.restoreNormal();
+        this.copyBetweenTexture(this.normalTexture, null);
     }
 
     getDepth() {
