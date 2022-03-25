@@ -34,21 +34,12 @@ float getZ(vec2 uv) {
 vec3 uvToEye(vec2 uv) {
     float depth = getZ(uv);
 
-    float width = 500.0;
-    float height = 500.0;
-    float tan_fov = 0.316;
-
-    float cx = width / 2.0;
-    float cy = height / 2.0;
-    float fx = cx / tan_fov;
-    float fy = cy / tan_fov;
-
-    float x = uv.x / fx - depth * tan_fov;
-    float y = uv.y / fy - depth * tan_fov;
+    float near = 0.01;
+    float x = (2. * uv.x - 1.) * 250. * - depth / near;
+    float y = (2. * uv.y - 1.) * 250. * - depth / near;
 
     return vec3(x, y, depth);
 }
-
 
 void main() {
 
@@ -63,25 +54,40 @@ void main() {
     float du = 1. / 500.;
     float dv = 1. / 500.;
 
-    vec3 posEye = uvToEye(uv);
+    // vec3 posEye = uvToEye(uv);
 
     // calculate defferences
-    vec3 ddx = uvToEye(uv + vec2(du, 0)) - posEye;
-    vec3 ddx2 = posEye - uvToEye(uv - vec2(du, 0));
-    if (abs(ddx.z) > abs(ddx2.z)) {
+    // vec3 ddx = uvToEye(uv + vec2(du, 0)) - posEye;
+    // vec3 ddx2 = posEye - uvToEye(uv - vec2(du, 0));
+    // if (abs(ddx.z) > abs(ddx2.z)) {
+    //     ddx = ddx2;
+    // }
+
+    // vec3 ddy = uvToEye(uv + vec2(0, dv)) - posEye;
+    // vec3 ddy2 = posEye - uvToEye(uv - vec2(0, dv));
+    // if (abs(ddy.z) > abs(ddy2.z)) {
+    //     ddy = ddy2;
+    // }
+
+    // vec3 n = cross(ddx, ddy);
+    // n = normalize(n);
+
+    float ddx = getZ(uv + vec2(du, 0)) - depth;
+    float ddx2 = depth - getZ(uv - vec2(du, 0));
+    if (abs(ddx) > abs(ddx2)) {
         ddx = ddx2;
     }
 
-    vec3 ddy = uvToEye(uv + vec2(0, dv)) - posEye;
-    vec3 ddy2 = posEye - uvToEye(uv - vec2(0, dv));
-    if (abs(ddy.z) > abs(ddy2.z)) {
+    float ddy = getZ(uv + vec2(0, dv)) - depth;
+    float ddy2 = depth - getZ(uv - vec2(0, dv));
+    if (abs(ddy) > abs(ddy2)) {
         ddy = ddy2;
     }
 
-    vec3 n = cross(ddx, ddy);
-    n = normalize(n);
+    float c_y = 2. / (0.01 * 2.);
+    float c_x = 2. / (0.01 * 2.);
 
-    n.z = - n.z;
+    vec3 n = vec3(-c_y * ddx, -c_x * ddy, c_x*c_y*depth);
 
     color = vec4(n, 1.0);
 }

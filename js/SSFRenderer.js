@@ -10,6 +10,7 @@ class SSFRender {
         this.getThickProgram = null;
         this.restoreNormalProgram = null;
         this.smoothDepthProgram = null;
+        this.shadingProgram = null;
         this.copyTextureProgram = null;             // 用于复制纹理的
 
         this.depthTexture = null;               // 存储屏幕空间深度
@@ -29,6 +30,7 @@ class SSFRender {
         this.restoreNormalProgram = new Shader(vsSSFRestoreNormal, fsSSFRestoreNormal);
         this.smoothDepthProgram = new Shader(vsSSFSmoothDepth, fsSSFSmoothDepth)
         this.copyTextureProgram = new Shader(vsTextureColor, fsTextureColor);
+        this.shadingProgram = new Shader(vsSSFShading, fsSSFShading);
         
         this.depthTexture = new Texture();
         this.depthTexture.generate(this.width, this.height, gl.RGBA32F, gl.RGBA, gl.NEAREST, gl.NEAREST, gl.FLOAT, null);
@@ -49,8 +51,10 @@ class SSFRender {
     render() {
         this.getDepth();
         this.smoothDepth();
+        this.getThick();
         this.restoreNormal();
-        this.copyBetweenTexture(this.normalTexture, null);
+        this.shading();
+        // this.copyBetweenTexture(this.normalTexture, null);
     }
 
     getDepth() {
@@ -109,6 +113,22 @@ class SSFRender {
         gl.viewport(0, 0, this.height, this.width);
         this.smoothDepthProgram.use();
         this.smoothDepthProgram.bindTexture("uTexture", this.depthTexture, 0);
+        gl.clearColor(100.0, 100.0, 100.0, 100.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.disable(gl.DEPTH_TEST);
+        gl.disable(gl.BLEND);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(1.0, 1.0, 1.0, 1.0);
+    }
+
+    shading() {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, this.height, this.width);
+        this.shadingProgram.use();
+        this.shadingProgram.bindTexture("uDepthTexture", this.smoothDepthTexture, 0);
+        this.shadingProgram.bindTexture("uThickTexture", this.thickTexture, 1);
+        this.shadingProgram.bindTexture("uNormalTexture", this.normalTexture, 2);
         gl.clearColor(100.0, 100.0, 100.0, 100.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.disable(gl.DEPTH_TEST);
