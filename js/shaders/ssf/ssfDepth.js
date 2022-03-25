@@ -52,7 +52,8 @@ const fsSSFDepth = `#version 300 es
             discard;
             return;
         }
-        
+
+        // BUG: 为什么调整半径没有用???
         float radius = 0.05;            // 粒子半径
         
         // 根据 gl_PointCoord 计算出当前着色的点在相机空间的坐标
