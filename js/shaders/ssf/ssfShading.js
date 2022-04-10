@@ -84,6 +84,7 @@ void shading_normal() {
 	color = vec4(normal, 1.0);
 }
 
+
 void shading_fresnel_scale() {
 	vec3 normal = texture(uNormalTexture, uv).xyz;
 
@@ -100,31 +101,32 @@ void shading_fresnel_scale() {
 
     float r = r0 + (1. - r0) * pow(1. - dot(normal, viewDir), 2.);
 
+    r = dot(normal, viewDir);
     color = vec4(r, r, r, 1.0);
 }
 
 void shading_fresnel() {
-	vec3 n = texture(uNormalTexture, uv).xyz;
-    vec3 pos = -uvToEye(uv);
-    vec3 e = normalize(pos);
+	vec3 normal = texture(uNormalTexture, uv).xyz;
+    vec3 shadePos = uvToEye(uv);
+    vec3 viewDir = normalize(-shadePos);
 
     float n1 = 1.3333f;
     float t = (n1 - 1.) / (n1 + 1.);
     float r0 = t * t;
-    float r = r0 + (1. - r0) * pow(1. - dot(n, pos), 5.);
+    float r = r0 + (1. - r0) * pow(1. - dot(normal, viewDir), 3.);
 
-	vec3 view_reflect = -e + 2. * n * dot(n, e);
-	vec3 view_refract = -e - 0.2*n;
+	vec3 view_reflect = -viewDir + 2. * normal * dot(normal, viewDir);
+	vec3 view_refract = -viewDir - 0.2*normal;
 
 	float thickness = texture(uThickTexture, uv).x;
 	float attenuate = max(exp(0.5 * - thickness), 0.2);
 	vec3 tint_color = vec3(6., 105., 217.) / 256.;
 
 	vec3 refract_color = mix(tint_color, vec3(1.0, 1.0, 1.0), attenuate);
-	vec3 reflect_color = vec3(0.6, 0.6, 0.6);
+	// vec3 reflect_color = vec3(0.6, 0.6, 0.6);
+	vec3 reflect_color = vec3(1., 1., 1.);
 
 	color = vec4(mix(refract_color, reflect_color, r), 1);
-    // color = vec4(refract_color, 1.);
 }
 
 void main() {
@@ -139,7 +141,7 @@ void main() {
 
     gl_FragDepth = 0.5 * (gl_DepthRange.diff * z_ndc + gl_DepthRange.far + gl_DepthRange.near);	
 
-    shading_fresnel_scale();
+    shading_fresnel();
 }
 
 `;

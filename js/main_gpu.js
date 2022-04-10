@@ -137,6 +137,7 @@ const initSSFRender = () => {
 
 
 const render = () => {
+    // 下面的相机参数不能修改，因为已经写死在 shader 中了
     camera.updateCamera(35, 1, 2.5);
 
     ssfRender.render(pbf, camera);
