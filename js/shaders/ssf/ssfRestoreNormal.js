@@ -22,6 +22,7 @@ precision highp float;
 precision highp sampler2D;
 
 uniform sampler2D uTexture;
+// uniform mat4 uPMatrix;
 
 in vec2 uv;
 out vec4 color;
@@ -30,15 +31,33 @@ float getZ(vec2 uv) {
     return - texture(uTexture, uv).x;
 }
 
+float proj(float ze) {
+    float near = 0.01;
+    float far = 10.;
+	return (far + near) / (far - near) + 2. * far * near / ((far - near) * ze);
+}
+
 // calculate eye-space position
 vec3 uvToEye(vec2 uv) {
     float depth = getZ(uv);
 
-    float near = 0.01;
-    float x = (2. * uv.x - 1.) * 250. * - depth / near;
-    float y = (2. * uv.y - 1.) * 250. * - depth / near;
+    float height = 0.00315;
+    float width = height;
 
+    float near = 0.01;
+    float x = (2. * uv.x - 1.) * height * (- depth) / near;
+    float y = (2. * uv.y - 1.) * width * (- depth) / near;
     return vec3(x, y, depth);
+
+    // // ndc coord
+    // float x  = uv.x * 2.0 - 1.0;
+    // float y  = uv.y * 2.0 - 1.0;
+    // float zn = proj(depth);
+    // // ndc -> clip space
+    // vec4 clipPos = vec4(x, y, zn, 1.0f);
+    // // clip -> view space
+    // vec4 viewPos = inverse(uPMatrix) * clipPos;
+    // return viewPos.xyz / viewPos.w;
 }
 
 void main() {
@@ -54,40 +73,23 @@ void main() {
     float du = 1. / 500.;
     float dv = 1. / 500.;
 
-    // vec3 posEye = uvToEye(uv);
+    vec3 posEye = uvToEye(uv);
 
     // calculate defferences
-    // vec3 ddx = uvToEye(uv + vec2(du, 0)) - posEye;
-    // vec3 ddx2 = posEye - uvToEye(uv - vec2(du, 0));
-    // if (abs(ddx.z) > abs(ddx2.z)) {
-    //     ddx = ddx2;
-    // }
-
-    // vec3 ddy = uvToEye(uv + vec2(0, dv)) - posEye;
-    // vec3 ddy2 = posEye - uvToEye(uv - vec2(0, dv));
-    // if (abs(ddy.z) > abs(ddy2.z)) {
-    //     ddy = ddy2;
-    // }
-
-    // vec3 n = cross(ddx, ddy);
-    // n = normalize(n);
-
-    float ddx = getZ(uv + vec2(du, 0)) - depth;
-    float ddx2 = depth - getZ(uv - vec2(du, 0));
-    if (abs(ddx) > abs(ddx2)) {
+    vec3 ddx = uvToEye(uv + vec2(du, 0)) - posEye;
+    vec3 ddx2 = posEye - uvToEye(uv - vec2(du, 0));
+    if (abs(ddx.z) > abs(ddx2.z)) {
         ddx = ddx2;
     }
 
-    float ddy = getZ(uv + vec2(0, dv)) - depth;
-    float ddy2 = depth - getZ(uv - vec2(0, dv));
-    if (abs(ddy) > abs(ddy2)) {
+    vec3 ddy = uvToEye(uv + vec2(0, dv)) - posEye;
+    vec3 ddy2 = posEye - uvToEye(uv - vec2(0, dv));
+    if (abs(ddy.z) > abs(ddy2.z)) {
         ddy = ddy2;
     }
 
-    float c_y = 2. / (0.01 * 2.);
-    float c_x = 2. / (0.01 * 2.);
-
-    vec3 n = vec3(-c_y * ddx, -c_x * ddy, c_x*c_y*depth);
+    vec3 n = cross(ddx, ddy);
+    n = normalize(n);
 
     color = vec4(n, 1.0);
 }

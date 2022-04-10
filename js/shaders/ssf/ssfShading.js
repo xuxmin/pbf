@@ -32,14 +32,18 @@ float getZ(vec2 uv) {
     return - texture(uDepthTexture, uv).x;
 }
 
+// 着色计算在相机坐标系下进行
+
 // calculate eye-space position
 vec3 uvToEye(vec2 uv) {
     float depth = getZ(uv);
 
-    float near = 0.01;
-    float x = (2. * uv.x - 1.) * 250. * - depth / near;
-    float y = (2. * uv.y - 1.) * 250. * - depth / near;
+    float height = 0.00315;
+    float width = height;
 
+    float near = 0.01;
+    float x = (2. * uv.x - 1.) * height * (- depth) / near;
+    float y = (2. * uv.y - 1.) * width * (- depth) / near;
     return vec3(x, y, depth);
 }
 
@@ -73,21 +77,29 @@ void shading_thick() {
 }
 
 void shading_normal() {
-	color = vec4(texture(uNormalTexture, uv).xyz, 1.0);
+    vec3 normal = texture(uNormalTexture, uv).xyz;
+    if (dot(normal, normal) < 0.01) {
+        discard;
+    }
+	color = vec4(normal, 1.0);
 }
 
 void shading_fresnel_scale() {
 	vec3 normal = texture(uNormalTexture, uv).xyz;
-    vec3 pos = -uvToEye(uv);
-    pos = normalize(pos);
+
+    if (dot(normal, normal) < 0.01) {
+        discard;
+    }
+
+    vec3 viewDir = -uvToEye(uv);
+    viewDir = normalize(viewDir);
 
     float n1 = 1.3333f;
     float t = (n1 - 1.) / (n1 + 1.);
     float r0 = t * t;
 
-    float r = r0 + (1. - r0) * pow(1. - dot(normal, pos), 2.);
+    float r = r0 + (1. - r0) * pow(1. - dot(normal, viewDir), 2.);
 
-    r = dot(normal, pos);
     color = vec4(r, r, r, 1.0);
 }
 
@@ -111,18 +123,22 @@ void shading_fresnel() {
 	vec3 refract_color = mix(tint_color, vec3(1.0, 1.0, 1.0), attenuate);
 	vec3 reflect_color = vec3(0.6, 0.6, 0.6);
 
-	//color = vec4(mix(refract_color, reflect_color, r), 1);
-    color = vec4(refract_color, 1.);
+	color = vec4(mix(refract_color, reflect_color, r), 1);
+    // color = vec4(refract_color, 1.);
 }
 
 void main() {
+    {
+	    vec3 n = texture(uNormalTexture, uv).xyz;
+	    n = texture(uThickTexture, uv).xyz;
+	    n = texture(uDepthTexture, uv).xyz;
+    }
 
     float depth = getZ(uv);
     float z_ndc = proj(depth);
 
     gl_FragDepth = 0.5 * (gl_DepthRange.diff * z_ndc + gl_DepthRange.far + gl_DepthRange.near);	
 
-    shading_thick();
     shading_fresnel_scale();
 }
 

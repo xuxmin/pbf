@@ -54,7 +54,6 @@ class SSFRender {
         this.getThick();
         this.restoreNormal();
         this.shading();
-        // this.copyBetweenTexture(this.normalTexture, null);
     }
 
     getDepth() {
@@ -101,11 +100,14 @@ class SSFRender {
         gl.viewport(0, 0, this.height, this.width);
         this.restoreNormalProgram.use();
         this.restoreNormalProgram.bindTexture("uTexture", this.smoothDepthTexture, 0);
+        // this.restoreNormalProgram.setUniformMatrix4fv("uPMatrix", this.camera.perspectiveMatrix);
+        gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.BLEND);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(1.0, 1.0, 1.0, 1.0);
     }
 
     smoothDepth() {

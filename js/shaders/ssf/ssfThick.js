@@ -60,8 +60,8 @@ const fsSSFThick = `#version 300 es
         vec2 xy = (gl_PointCoord - vec2(0.5)) * 2.;
         float z = sqrt(1.0 - dot(xy, xy));
 
-        vec3 lightDir = vec3(0., 0., 1.);
-        float thickness = 2. * radius * dot(vec3(xy, z), lightDir);
+        vec3 viewDir = vec3(0., 0., 1.);
+        float thickness = 2. * radius * dot(vec3(xy, z), viewDir);
 
         color = vec4(thickness, 0., 0., 1.);
     }
