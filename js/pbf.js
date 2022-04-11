@@ -132,7 +132,7 @@ class PBF {
             // 计算 ΔP，并更新位置，写入 tmpPositionBuffer
             // 由于不能写入 tmpPositionBuffer， 也不能覆盖掉 positionBuffer, 所以我们暂时写入
             // velocityBuffer， 因为 velocityBuffer 中已经没有用了，后面要重新计算的。
-            this.calculateDeltaP(correction, tensileK, restDensity, controls.addObstacle, {
+            this.calculateDeltaP(correction, tensileK, restDensity, controls.addObstacle, controls.wall, {
                 x: controls.obstacleX,
                 y: controls.obstacleY,
                 z: controls.obstacleZ,
@@ -272,7 +272,7 @@ class PBF {
         gl.drawArrays(gl.POINTS, 0, this.totalParticles);
     }
 
-    calculateDeltaP(correction, tensileK, restDensity, collide=false, obsCenter=null, obsSize=null) {
+    calculateDeltaP(correction, tensileK, restDensity, collide=false, wall=0, obsCenter=null, obsSize=null) {
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.velocityBuffer);
         gl.viewport(0, 0, this.particlesTextureSize, this.particlesTextureSize);
         this.calculateDeltaPProgram.use();
@@ -285,6 +285,7 @@ class PBF {
         this.calculateDeltaPProgram.setUniform1f("uRestDensity", restDensity);
         // collide
         this.calculateDeltaPProgram.setUniform1f("uCollide", collide);
+        this.calculateDeltaPProgram.setUniform1f("uWall", wall);
         this.calculateDeltaPProgram.setUniform3f("uCenterPosition", obsCenter.x, obsCenter.y, obsCenter.z);
         this.calculateDeltaPProgram.setUniform3f("uSize", obsSize.x, obsSize.y, obsSize.z);
         // lambda correction

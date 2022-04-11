@@ -17,6 +17,8 @@ uniform bool  uCorrection;
 uniform float uTensileK;
 
 
+uniform float uWall;
+
 // obstacle 信息
 uniform float uCollide;         // 是否进行冲突检测
 uniform vec3 uCenterPosition;   // 中心位置
@@ -164,8 +166,8 @@ void main() {
 
     if (endPosition.z > uBucketSize - 0.2)
         endPosition.z = uBucketSize - 0.2;
-    if (endPosition.z < 0.2)
-        endPosition.z = 0.2;
+    if (endPosition.z < uWall)
+        endPosition.z = uWall + 0.2;
 
     // 冲突检测
     if (uCollide == 1.0)  {

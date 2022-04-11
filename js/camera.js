@@ -24,19 +24,19 @@ class Camera {
         canvas.style.cursor = " -webkit-grab";
 
 
-        document.addEventListener('mousemove', (e) => {
+        canvas.addEventListener('mousemove', (e) => {
             this.currentMouseX = e.clientX;
             this.currentMouseY = e.clientY;
             // console.log("mouse move");
         }, false);
 
-        document.addEventListener('mousedown', (e) => {
+        canvas.addEventListener('mousedown', (e) => {
             canvas.style.cursor = "-moz-grabbing";
             canvas.style.cursor = " -webkit-grabbing";
             this.down = true;
         }, false);
 
-        document.addEventListener('mouseup', (e) => {
+        canvas.addEventListener('mouseup', (e) => {
             canvas.style.cursor = "-moz-grab";
             canvas.style.cursor = " -webkit-grab";
             this.down = false;

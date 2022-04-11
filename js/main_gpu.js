@@ -31,9 +31,9 @@ const skybox = new Skybox(skyboxProgram);
 
 // 控制参数
 var controls = {
-    resolution: 32, // 粒子运动范围 0-resolution, 这个范围映射到屏幕上
+    resolution: 48, // 粒子运动范围 0-resolution, 这个范围映射到屏幕上
     particleSize : 7,
-    particlesNum: 5000,
+    particlesNum: 10000,
     solverIterations: 4,
     deltaTime: 0.02,
     relaxParameter: 0.05,
@@ -50,7 +50,9 @@ var controls = {
     obstacleZ: 0.5,
     sizeX: 0.3,
     sizeY: 0.1,
-    sizeZ: 0.8
+    sizeZ: 0.8,
+
+    wall: 0,
 };
 
 
@@ -61,6 +63,7 @@ var running = false;
 
 const initGUI = (gui) => {
     gui.remember(controls);
+    gui.add(controls, 'wall', 0, controls.resolution / 2).step(0.1);
     gui.add(controls, 'deltaTime', 0.00, 0.1).step(0.01);
     gui.add(controls, 'resolution', 32, 64).step(16);
     gui.add(controls, 'particleSize', 1, 20).step(1);
