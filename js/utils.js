@@ -99,6 +99,35 @@ class Texture {
     }
 };
 
+class TextureCube {
+    constructor() {
+        this.tex = gl.createTexture();
+    }
+
+    generate(width, height, imgArray) {
+        this.tex.width = width;
+        this.tex.height = height;
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.tex);
+
+        for(let i = 0; i < 6; i++) {
+            gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i, 0,
+                          gl.RGB, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, imgArray[i]);
+        }
+
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WARP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WARP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WARP_R, gl.CLAMP_TO_EDGE);
+
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+    }
+
+    bind() {
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.tex);
+    }
+}
+
 /*
 帧缓冲区也可以称为帧缓存， 对于有独立显卡的PC， 帧缓冲区是GPU的专属内存， 
 位于独立显卡上， 是显存的一部分； 像手机等嵌入设备的帧缓冲区往往位于CPU和GPU的共享内存上。 

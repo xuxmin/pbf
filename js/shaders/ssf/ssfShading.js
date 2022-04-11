@@ -24,6 +24,7 @@ precision highp sampler2D;
 uniform sampler2D uDepthTexture;
 uniform sampler2D uThickTexture;
 uniform sampler2D uNormalTexture;
+uniform samplerCube skybox;
 
 in vec2 uv;
 out vec4 color;
@@ -105,28 +106,42 @@ void shading_fresnel_scale() {
     color = vec4(r, r, r, 1.0);
 }
 
+vec3 computeAttennuation(float thickness) {
+    const float k_r = 0.5f;
+    const float k_g = 0.2f;
+    const float k_b = 0.05f;
+    return vec3(exp(-k_r * thickness), exp(-k_g * thickness), exp(-k_b * thickness));
+}
+
 void shading_fresnel() {
 	vec3 normal = texture(uNormalTexture, uv).xyz;
+
+    if (dot(normal, normal) < 0.01) {
+        discard;
+    }
+
     vec3 shadePos = uvToEye(uv);
     vec3 viewDir = normalize(-shadePos);
 
     float n1 = 1.3333f;
     float t = (n1 - 1.) / (n1 + 1.);
     float r0 = t * t;
-    float r = r0 + (1. - r0) * pow(1. - dot(normal, viewDir), 3.);
-
-	vec3 view_reflect = -viewDir + 2. * normal * dot(normal, viewDir);
-	vec3 view_refract = -viewDir - 0.2*normal;
+    float fresnelRatio = clamp(r0 + (1. - r0) * pow(1. - dot(normal, viewDir), 3.), 0., 1.);
 
 	float thickness = texture(uThickTexture, uv).x;
-	float attenuate = max(exp(0.5 * - thickness), 0.2);
-	vec3 tint_color = vec3(6., 105., 217.) / 256.;
 
-	vec3 refract_color = mix(tint_color, vec3(1.0, 1.0, 1.0), attenuate);
-	// vec3 reflect_color = vec3(0.6, 0.6, 0.6);
-	vec3 reflect_color = vec3(1., 1., 1.);
+	vec3 reflectionDir = -viewDir + 2. * normal * dot(normal, viewDir);
+    vec3 reflectionColor = texture(skybox, reflectionDir).rgb;
 
-	color = vec4(mix(refract_color, reflect_color, r), 1);
+    // Color Attenuation from Thickness (Beer's Law)
+    vec3 tint_color = vec3(6., 105., 217.) / 256.;
+    vec3 attenuate = computeAttennuation(thickness * 5.0f);
+    attenuate = mix(vec3(1, 1, 1), attenuate, tint_color);
+
+	vec3 refractionDir = -viewDir - 0.2*normal;
+    vec3 refractionColor = mix(tint_color, texture(skybox, refractionDir).rgb, attenuate);
+
+	color = vec4(mix(refractionColor, reflectionColor, fresnelRatio), 1);
 }
 
 void main() {

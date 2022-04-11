@@ -20,14 +20,14 @@ const gui = new dat.gui.GUI();
 const myStats = new Stats();
 const renderParticlesProgram = new Shader(vsParticles, fsParticles);
 const renderRectProgram = new Shader(vsRect, fsRect);
-
+const skyboxProgram = new Shader(vsSkybox, fsSkybox);
 
 const pbf = new PBF();
 const rect = new Rectangle(renderRectProgram);
 const solid_rect = new SolidRectangle(renderRectProgram);
 const camera = new Camera(canvas);
 const ssfRender = new SSFRender(canvas, pbf, camera);
-
+const skybox = new Skybox(skyboxProgram);
 
 // 控制参数
 var controls = {
@@ -131,14 +131,16 @@ const initParticles = () => {
 
 
 // 初始化 SSFRender
-const initSSFRender = () => {
-    ssfRender.init();
+const initSSFRender = (skybox) => {
+    ssfRender.init(skybox);
 }
 
 
 const render = () => {
     // 下面的相机参数不能修改，因为已经写死在 shader 中了
     camera.updateCamera(35, 1, 2.5);
+
+    skybox.render();
 
     ssfRender.render(pbf, camera);
 

@@ -25,6 +25,8 @@ class SSFRender {
     }
 
     init() {
+        this.skybox = skybox
+
         this.getDepthProgram = new Shader(vsSSFDepth, fsSSFDepth);
         this.getThickProgram = new Shader(vsSSFThick, fsSSFThick);
         this.restoreNormalProgram = new Shader(vsSSFRestoreNormal, fsSSFRestoreNormal);
@@ -131,12 +133,13 @@ class SSFRender {
         this.shadingProgram.bindTexture("uDepthTexture", this.smoothDepthTexture, 0);
         this.shadingProgram.bindTexture("uThickTexture", this.thickTexture, 1);
         this.shadingProgram.bindTexture("uNormalTexture", this.normalTexture, 2);
-        gl.clearColor(100.0, 100.0, 100.0, 100.0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.disable(gl.DEPTH_TEST);
+        this.shadingProgram.bindTexture("skybox", this.skybox.cubemapTexture, 3);
+        // gl.clearColor(100.0, 100.0, 100.0, 100.0);
+        // gl.clear(gl.COLOR_BUFFER_BIT);
+        // gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.BLEND);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        gl.enable(gl.DEPTH_TEST);
+        // gl.enable(gl.DEPTH_TEST);
     }
     
     copyBetweenTexture(srcTexture, dstBuffer) {
