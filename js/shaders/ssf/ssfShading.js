@@ -134,22 +134,22 @@ void shading_fresnel() {
     vec3 reflectionColor = texture(skybox, reflectionDir).rgb;
 
     // Color Attenuation from Thickness (Beer's Law)
-    vec3 tint_color = vec3(6., 105., 217.) / 256.;
     vec3 attenuate = computeAttennuation(thickness * 5.0f);
-    attenuate = mix(vec3(1, 1, 1), attenuate, tint_color);
+    attenuate = mix(vec3(1., 1., 1.), attenuate, 1.0);
 
 	vec3 refractionDir = -viewDir - 0.2*normal;
-    vec3 refractionColor = mix(tint_color, texture(skybox, refractionDir).rgb, attenuate);
+    vec3 refractionColor = attenuate * texture(skybox, refractionDir).rgb;
 
 	color = vec4(mix(refractionColor, reflectionColor, fresnelRatio), 1);
 }
 
 void main() {
-    {
-	    vec3 n = texture(uNormalTexture, uv).xyz;
-	    n = texture(uThickTexture, uv).xyz;
-	    n = texture(uDepthTexture, uv).xyz;
-    }
+    // {
+	//     vec3 n = texture(uNormalTexture, uv).xyz;
+	//     n = texture(uThickTexture, uv).xyz;
+	//     n = texture(uDepthTexture, uv).xyz;
+    //     n = texture(skybox, vec3(1., 1., 1.)).xyz;
+    // }
 
     float depth = getZ(uv);
     float z_ndc = proj(depth);

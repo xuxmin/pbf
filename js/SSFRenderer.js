@@ -53,6 +53,8 @@ class SSFRender {
     render() {
         this.getDepth();
         this.smoothDepth();
+        this.copyBetweenTexture(this.smoothDepthTexture, this.depthBuffer);
+        this.smoothDepth();
         this.getThick();
         this.restoreNormal();
         this.shading();

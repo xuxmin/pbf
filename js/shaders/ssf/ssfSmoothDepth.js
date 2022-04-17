@@ -32,9 +32,9 @@ float getZ(int x, int y) {
 
 float bilateral(int x, int y) {
 
-    int kernel_r = 20;
-    float blur_r = 1. / 5.;
-    float blur_z = 1. / 10.;
+    int kernel_r = 10;
+    float blur_r = 1. / 6.;
+    float blur_z = 10.;
 
 	float z = getZ(x, y);
 	float sum = 0., wsum = 0.;
