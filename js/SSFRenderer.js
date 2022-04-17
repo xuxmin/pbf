@@ -12,6 +12,7 @@ class SSFRender {
         this.smoothDepthProgram = null;
         this.shadingProgram = null;
         this.copyTextureProgram = null;             // 用于复制纹理的
+        this.renderParticlesProgram = null;
 
         this.depthTexture = null;               // 存储屏幕空间深度
         this.smoothDepthTexture = null;
@@ -33,6 +34,7 @@ class SSFRender {
         this.smoothDepthProgram = new Shader(vsSSFSmoothDepth, fsSSFSmoothDepth)
         this.copyTextureProgram = new Shader(vsTextureColor, fsTextureColor);
         this.shadingProgram = new Shader(vsSSFShading, fsSSFShading);
+        this.renderParticlesProgram = new Shader(vsParticles, fsParticles);
         
         this.depthTexture = new Texture();
         this.depthTexture.generate(this.width, this.height, gl.RGBA32F, gl.RGBA, gl.NEAREST, gl.NEAREST, gl.FLOAT, null);
@@ -50,14 +52,20 @@ class SSFRender {
         this.smoothDepthBuffer = createDrawFramebuffer(this.smoothDepthTexture.tex, false, false);
     }
 
-    render() {
-        this.getDepth();
-        this.smoothDepth();
-        this.copyBetweenTexture(this.smoothDepthTexture, this.depthBuffer);
-        this.smoothDepth();
-        this.getThick();
-        this.restoreNormal();
-        this.shading();
+    render(ssfr) {
+        if (ssfr) {
+            this.getDepth();
+            this.smoothDepth();
+            this.copyBetweenTexture(this.smoothDepthTexture, this.depthBuffer);
+            this.smoothDepth();
+            this.getThick();
+            this.restoreNormal();
+            this.shading();            
+        }
+        else {
+            this.renderParticles();
+        }
+
     }
 
     getDepth() {
@@ -136,12 +144,22 @@ class SSFRender {
         this.shadingProgram.bindTexture("uThickTexture", this.thickTexture, 1);
         this.shadingProgram.bindTexture("uNormalTexture", this.normalTexture, 2);
         this.shadingProgram.bindTexture("skybox", this.skybox.cubemapTexture, 3);
-        // gl.clearColor(100.0, 100.0, 100.0, 100.0);
-        // gl.clear(gl.COLOR_BUFFER_BIT);
-        // gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.BLEND);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    renderParticles() {
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+        gl.viewport(0, 0, this.height, this.height);
+        renderParticlesProgram.use();
+        renderParticlesProgram.bindTexture("uTexturePosition", this.pbf.positionTexture, 0);
+        renderParticlesProgram.setUniform1f("uScale", controls.resolution); // 用于将坐标返回转换到 [0, 1]
+        renderParticlesProgram.setUniform1f("particleSize", controls.particleSize);
+        renderParticlesProgram.setUniformMatrix4fv("uCameraMatrix", this.camera.cameraTransformMatrix);
+        renderParticlesProgram.setUniformMatrix4fv("uPMatrix", this.camera.perspectiveMatrix);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         // gl.enable(gl.DEPTH_TEST);
+        gl.drawArrays(gl.POINTS, 0, this.pbf.totalParticles);
     }
     
     copyBetweenTexture(srcTexture, dstBuffer) {

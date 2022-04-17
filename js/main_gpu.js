@@ -53,6 +53,7 @@ var controls = {
     sizeZ: 0.8,
 
     wall: 0,
+    SSFR: true,
 };
 
 
@@ -63,10 +64,12 @@ var running = false;
 
 const initGUI = (gui) => {
     gui.remember(controls);
+    gui.addFolder("Parameter Control");
+    gui.add(controls, 'SSFR')
+    gui.add(controls, 'particleSize', 1, 20).step(1);
     gui.add(controls, 'wall', 0, controls.resolution / 2).step(0.1);
     gui.add(controls, 'deltaTime', 0.00, 0.1).step(0.01);
     gui.add(controls, 'resolution', 32, 64).step(16);
-    gui.add(controls, 'particleSize', 1, 20).step(1);
     gui.add(controls, 'particlesNum', 5000, 50000).step(5000);
     gui.add(controls, 'solverIterations', 1, 5).step(1);
     gui.add(controls, 'relaxParameter', 0.05, 0.05);
@@ -142,10 +145,10 @@ const initSSFRender = (skybox) => {
 const render = () => {
     // 下面的相机参数不能修改，因为已经写死在 shader 中了
     camera.updateCamera(35, 1, 2.5);
-
+    
     skybox.render();
 
-    ssfRender.render(pbf, camera);
+    ssfRender.render(controls.SSFR);
 
     rect.render(camera, {x:0, y:0, z:0}, {x:1, y:1, z:1}, 0);
     if (controls.addObstacle) {
