@@ -31,15 +31,15 @@ const skybox = new Skybox(skyboxProgram);
 
 // 控制参数
 var controls = {
-    resolution: 48, // 粒子运动范围 0-resolution, 这个范围映射到屏幕上
+    resolution: 64, // 粒子运动范围 0-resolution, 这个范围映射到屏幕上
     particleSize : 7,
-    particlesNum: 10000,
+    particlesNum: 50000,
     solverIterations: 4,
     deltaTime: 0.02,
     relaxParameter: 0.05,
     correction: true,
     tensileK: 40,
-    viscosity: 0.01,
+    viscosity: 0.1,
     vorticity: 0.01,
     ax: 0,
     ay: -2,
@@ -52,7 +52,6 @@ var controls = {
     sizeY: 0.1,
     sizeZ: 0.8,
 
-    wall: 0,
     SSFR: true,
 };
 
@@ -67,10 +66,9 @@ const initGUI = (gui) => {
     gui.addFolder("Parameter Control");
     gui.add(controls, 'SSFR')
     gui.add(controls, 'particleSize', 1, 20).step(1);
-    gui.add(controls, 'wall', 0, controls.resolution / 2).step(0.1);
     gui.add(controls, 'deltaTime', 0.00, 0.1).step(0.01);
     gui.add(controls, 'resolution', 32, 64).step(16);
-    gui.add(controls, 'particlesNum', 5000, 50000).step(5000);
+    gui.add(controls, 'particlesNum', 10000, 100000).step(10000);
     gui.add(controls, 'solverIterations', 1, 5).step(1);
     gui.add(controls, 'relaxParameter', 0.05, 0.05);
     gui.add(controls, 'viscosity', 0, 1).step(0.01);

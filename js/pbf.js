@@ -285,7 +285,6 @@ class PBF {
         this.calculateDeltaPProgram.setUniform1f("uRestDensity", restDensity);
         // collide
         this.calculateDeltaPProgram.setUniform1f("uCollide", collide);
-        this.calculateDeltaPProgram.setUniform1f("uWall", wall);
         this.calculateDeltaPProgram.setUniform3f("uCenterPosition", obsCenter.x, obsCenter.y, obsCenter.z);
         this.calculateDeltaPProgram.setUniform3f("uSize", obsSize.x, obsSize.y, obsSize.z);
         // lambda correction
