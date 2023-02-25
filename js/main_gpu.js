@@ -235,4 +235,10 @@ run.onclick = () => {
     running = !running;
 }
 
-main()
+let timer = setInterval(function() {
+    if (skybox.valid()) {
+        skybox.generate();
+        main();
+        clearInterval(timer);
+    }
+}, 50)

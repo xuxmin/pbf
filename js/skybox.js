@@ -28,12 +28,24 @@ class Skybox {
 
         this.shader = shader;
 
-        this.cubemapTexture = new TextureCube()
-        this.cubemapTexture.generate(2048, 2048, [
+        this.img_list =  [
             document.getElementById("cube_right"), document.getElementById("cube_left"),
             document.getElementById("cube_top"), document.getElementById("cube_bottom"),
             document.getElementById("cube_back"), document.getElementById("cube_front"),
-        ])
+        ];
+    }
+
+    valid() {
+        for (let i = 0; i < 6; i++) {
+            if (!this.img_list[i].complete)
+                return false;
+        }
+        return true;
+    }
+
+    generate() {
+        this.cubemapTexture = new TextureCube()
+        this.cubemapTexture.generate(2048, 2048, this.img_list)
     }
 
     render() {
