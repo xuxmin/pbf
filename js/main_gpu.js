@@ -21,6 +21,7 @@ const myStats = new Stats();
 const renderParticlesProgram = new Shader(vsParticles, fsParticles);
 const renderRectProgram = new Shader(vsRect, fsRect);
 const skyboxProgram = new Shader(vsSkybox, fsSkybox);
+const planeProgram = new Shader(vsPlane, fsPlane);
 
 const pbf = new PBF();
 const rect = new Rectangle(renderRectProgram);
@@ -28,11 +29,12 @@ const solid_rect = new SolidRectangle(renderRectProgram);
 const camera = new Camera(canvas);
 const ssfRender = new SSFRender(canvas, pbf, camera);
 const skybox = new Skybox(skyboxProgram);
+const plane = new Plane(planeProgram);
 
 // 控制参数
 var controls = {
     resolution: 64, // 粒子运动范围 0-resolution, 这个范围映射到屏幕上
-    particleSize : 4,
+    particleSize : 3,
     particlesNum: 50000,
     solverIterations: 4,
     deltaTime: 0.04,
@@ -53,6 +55,11 @@ var controls = {
     sizeZ: 0.8,
 
     SSFR: true,
+    attenuate_k: 0.5,
+    max_attenuate: 0.3,
+    tint_color_r: 6,
+    tint_color_g: 105,
+    tint_color_b: 217,
 };
 
 
@@ -64,7 +71,6 @@ var running = false;
 const initGUI = (gui) => {
     gui.remember(controls);
     gui.addFolder("Parameter Control");
-    gui.add(controls, 'SSFR')
     gui.add(controls, 'particleSize', 1, 20).step(1);
     gui.add(controls, 'deltaTime', 0.00, 0.1).step(0.01);
     gui.add(controls, 'resolution', 32, 64).step(16);
@@ -73,10 +79,18 @@ const initGUI = (gui) => {
     gui.add(controls, 'relaxParameter', 0.05, 0.05);
     gui.add(controls, 'viscosity', 0, 1).step(0.01);
     gui.add(controls, 'vorticity', 0, 20).step(0.1);
-    var f0 = gui.addFolder('surface tensile');
+    var f3 = gui.addFolder('SSFR');
+    f3.closed = false;
+    f3.add(controls, 'SSFR');
+    f3.add(controls, 'tint_color_r', 0, 255).step(1);
+    f3.add(controls, 'tint_color_g', 0, 255).step(1);
+    f3.add(controls, 'tint_color_b', 0, 255).step(1);
+    f3.add(controls, 'max_attenuate', 0, 1).step(0.1);
+    f3.add(controls, 'attenuate_k', 0, 1).step(0.1);
+    var f0 = gui.addFolder('Surface tensile');
     f0.add(controls, 'correction');
     f0.add(controls, 'tensileK', 0, 50).step(1);
-    var f1 = gui.addFolder('acceleration');
+    var f1 = gui.addFolder('Acceleration');
     f1.add(controls, 'ax', -10, 10).step(1);
     f1.add(controls, 'ay', -10, 10).step(1);
     f1.add(controls, 'az', -10, 10).step(1);
@@ -146,9 +160,13 @@ const render = () => {
     
     skybox.render();
 
-    ssfRender.render(controls.SSFR);
+    ssfRender.render(controls);
 
     rect.render(camera, {x:0, y:0, z:0}, {x:1, y:1, z:1}, 0);
+
+    if (controls.SSFR) {
+        plane.render(camera);
+    }
     if (controls.addObstacle) {
         solid_rect.render(camera, {
             x: controls.obstacleX,

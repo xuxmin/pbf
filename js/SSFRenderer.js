@@ -52,7 +52,8 @@ class SSFRender {
         this.smoothDepthBuffer = createDrawFramebuffer(this.smoothDepthTexture.tex, false, false);
     }
 
-    render(ssfr) {
+    render(controls) {
+        const ssfr = controls.SSFR;
         if (ssfr) {
             this.getDepth();
             this.smoothDepth();
@@ -60,7 +61,7 @@ class SSFRender {
             this.smoothDepth();
             this.getThick();
             this.restoreNormal();
-            this.shading();            
+            this.shading(controls);            
         }
         else {
             this.renderParticles();
@@ -137,13 +138,23 @@ class SSFRender {
     }
 
     shading() {
+        const attenuate_k = controls.attenuate_k;
+        const max_attenuate = controls.max_attenuate;
+        const tx = controls.tint_color_r;
+        const ty = controls.tint_color_g;
+        const tz = controls.tint_color_b;
+
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.viewport(0, 0, this.height, this.width);
         this.shadingProgram.use();
         this.shadingProgram.bindTexture("uDepthTexture", this.smoothDepthTexture, 0);
         this.shadingProgram.bindTexture("uThickTexture", this.thickTexture, 1);
         this.shadingProgram.bindTexture("uNormalTexture", this.normalTexture, 2);
-        this.shadingProgram.bindTexture("skybox", this.skybox.cubemapTexture, 3);
+        this.shadingProgram.bindTexture("uSkybox", this.skybox.cubemapTexture, 3);
+        this.shadingProgram.setUniformMatrix4fv("uCameraMatrix", this.camera.cameraTransformMatrix);
+        this.shadingProgram.setUniform3f("uTintColor", tx / 255.0, ty / 255.0, tz / 255.0);
+        this.shadingProgram.setUniform1f("uMaxAttenuate", max_attenuate);
+        this.shadingProgram.setUniform1f("uAttenuateK", attenuate_k);
         gl.disable(gl.BLEND);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }

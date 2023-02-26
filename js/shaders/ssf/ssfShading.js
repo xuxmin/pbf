@@ -1,5 +1,6 @@
 const vsSSFShading = `#version 300 es
 
+uniform mat4 uCameraMatrix;
 out vec2 uv;    // 纹理坐标
 
 void main()
@@ -10,6 +11,8 @@ void main()
 
     // 转换为 (0, 1) 范围的纹理坐标
     uv = 0.5 * position + vec2(0.5);
+
+    vec4 viewPos = uCameraMatrix * vec4(1.);
 
     gl_Position = vec4(position, 0., 1.);   // 生成了绘制矩形需要的四个顶点
 }
@@ -24,7 +27,11 @@ precision highp sampler2D;
 uniform sampler2D uDepthTexture;
 uniform sampler2D uThickTexture;
 uniform sampler2D uNormalTexture;
-uniform samplerCube skybox;
+uniform samplerCube uSkybox;
+uniform mat4 uCameraMatrix;
+uniform vec3 uTintColor;
+uniform float uMaxAttenuate;
+uniform float uAttenuateK;
 
 in vec2 uv;
 out vec4 color;
@@ -113,6 +120,32 @@ vec3 computeAttennuation(float thickness) {
     return vec3(exp(-k_r * thickness), exp(-k_g * thickness), exp(-k_b * thickness));
 }
 
+vec3 trace_color(vec3 p_in_cam, vec3 d_in_cam) {
+    mat4 inv_cam = inverse(uCameraMatrix);
+    vec4 p_in_world = inv_cam * vec4(p_in_cam, 1.);
+    vec3 d_in_world = vec3(transpose(uCameraMatrix) * vec4(d_in_cam, 1.0));
+
+    // 计算与 x, z [0, 1] 这个正方形的交点
+    float t = -p_in_world.y / d_in_world.y;
+	vec3 world_its = p_in_world.xyz + t * d_in_world;
+
+    if (t > 0.0 && world_its.x < 1.0 && world_its.x > 0.0 && world_its.z < 1.0 && world_its.z > 0.0) {
+		float scale = 10.0;
+		vec2 uv = scale * (world_its.xz);
+		float u = mod(uv.x, 1.), v = mod(uv.y, 1.);
+
+        if (u >= 0.0 && u < 0.5 && v >= 0.0 && v < 0.5
+            || u >= 0.5 && u < 1.0 && v >= 0.5 && v < 1.0) {
+			return vec3(0.1, 0.1, 0.1);
+        }
+        else {
+			return vec3(0.5, 0.5, 0.5);
+        }
+	}
+	else
+        return texture(uSkybox, d_in_world).rgb;
+}
+
 void shading_fresnel() {
 	vec3 normal = texture(uNormalTexture, uv).xyz;
 
@@ -131,14 +164,13 @@ void shading_fresnel() {
 	float thickness = texture(uThickTexture, uv).x;
 
 	vec3 reflectionDir = -viewDir + 2. * normal * dot(normal, viewDir);
-    vec3 reflectionColor = texture(skybox, reflectionDir).rgb;
+    vec3 reflectionColor = trace_color(shadePos, reflectionDir);
 
     // Color Attenuation from Thickness (Beer's Law)
-    vec3 attenuate = computeAttennuation(thickness * 5.0f);
-    attenuate = mix(vec3(1., 1., 1.), attenuate, 1.0);
+    float attenuate = max(exp(-uAttenuateK * thickness), uMaxAttenuate);
 
 	vec3 refractionDir = -viewDir - 0.2*normal;
-    vec3 refractionColor = attenuate * texture(skybox, refractionDir).rgb;
+    vec3 refractionColor = mix(uTintColor, trace_color(shadePos, refractionDir), attenuate);
 
 	color = vec4(mix(refractionColor, reflectionColor, fresnelRatio), 1);
 }
