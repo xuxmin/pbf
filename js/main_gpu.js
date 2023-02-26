@@ -32,10 +32,10 @@ const skybox = new Skybox(skyboxProgram);
 // 控制参数
 var controls = {
     resolution: 64, // 粒子运动范围 0-resolution, 这个范围映射到屏幕上
-    particleSize : 7,
+    particleSize : 4,
     particlesNum: 50000,
     solverIterations: 4,
-    deltaTime: 0.02,
+    deltaTime: 0.04,
     relaxParameter: 0.05,
     correction: true,
     tensileK: 40,
@@ -236,8 +236,9 @@ run.onclick = () => {
 }
 
 let timer = setInterval(function() {
-    if (skybox.valid()) {
+    if (skybox.valid() && solid_rect.valid()) {
         skybox.generate();
+        solid_rect.generate();
         main();
         clearInterval(timer);
     }

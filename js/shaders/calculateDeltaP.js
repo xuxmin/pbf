@@ -152,20 +152,20 @@ void main() {
     vec3 endPosition = particlePosition + (1. / uRestDensity) * deltaPosition;
 
     // 对粒子进行约束
-    if (endPosition.x > uBucketSize - 0.2)
-        endPosition.x = uBucketSize - 0.2;
-    if (endPosition.x < 0.2)
-        endPosition.x = 0.2;
+    if (endPosition.x > uBucketSize - 0.5)
+        endPosition.x = uBucketSize - 0.5;
+    if (endPosition.x < 0.5)
+        endPosition.x = 0.5;
 
-    if (endPosition.y > uBucketSize - 0.2)
-        endPosition.y = uBucketSize - 0.2;
-    if (endPosition.y < 0.2)
-        endPosition.y = 0.2;
+    if (endPosition.y > uBucketSize - 0.5)
+        endPosition.y = uBucketSize - 0.5;
+    if (endPosition.y < 0.5)
+        endPosition.y = 0.5;
 
-    if (endPosition.z > uBucketSize - 0.2)
-        endPosition.z = uBucketSize - 0.2;
-    if (endPosition.z < 0.2)
-        endPosition.z = 0.2;
+    if (endPosition.z > uBucketSize - 0.5)
+        endPosition.z = uBucketSize - 0.5;
+    if (endPosition.z < 0.5)
+        endPosition.z = 0.5;
 
     // 冲突检测
     if (uCollide == 1.0)  {
@@ -179,27 +179,27 @@ void main() {
         float y = endPosition.y;
         float z = endPosition.z;
         // 与上面相撞
-        if (x >= back && x <= front && z >= left && z <= right && y >= up - 0.1 && y < up) {
+        if (x >= back && x <= front && z >= left && z <= right && y >= up - 0.4 && y < up) {
             endPosition.y = up;
         } 
         // 与下面相撞
-        else if (x >= back && x <= front && z >= left && z <= right && y <= down + 0.1 && y > down) {
+        else if (x >= back && x <= front && z >= left && z <= right && y <= down + 0.4 && y > down) {
             endPosition.y = down;
         }
         // 与左面相撞
-        else if (x >= back && x <= front && y >= down && y <= up && z <= left + 0.1 && z > left) {
+        else if (x >= back && x <= front && y >= down && y <= up && z <= left + 0.4 && z > left) {
             endPosition.z = left;
         }
         // 与右面相撞
-        else if (x >= back && x <= front && y >= down && y <= up && z >= right - 0.1 && z < right) {
+        else if (x >= back && x <= front && y >= down && y <= up && z >= right - 0.4 && z < right) {
             endPosition.z = right;
         }
         // 与后面相撞
-        else if (y >= down && y <= up && z >= left && z <= right && x <= back + 0.1 && x > back) {
+        else if (y >= down && y <= up && z >= left && z <= right && x <= back + 0.4 && x > back) {
             endPosition.x = back;
         }
         // 与前面相撞
-        else if (y >= down && y <= up && z >= left && z <= right && x >= front - 0.1 && x < front) {
+        else if (y >= down && y <= up && z >= left && z <= right && x >= front - 0.4 && x < front) {
             endPosition.x = front;
         }
     }

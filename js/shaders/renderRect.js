@@ -6,16 +6,17 @@ uniform vec3 uSize;
 uniform float uColor;
 
 in vec3 aPosition;
-out vec4 colorData;
+out vec3 TexCoords;
 
 void main()
 {
     vec3 position = vec3(aPosition.x * uSize.x, aPosition.y * uSize.y, aPosition.z * uSize.z);
     gl_Position = uPMatrix * uCameraMatrix * vec4((position + uCenter), 1.);
     if (uColor == 1.0)
-        colorData = gl_Position;
+        vec4 colorData = gl_Position;
     else
-        colorData = vec4(0., 0., 0., 1.0);
+        vec4 colorData = vec4(0., 0., 0., 1.0);
+    TexCoords = aPosition;
 }
 
 `;
@@ -23,11 +24,13 @@ void main()
 const fsRect = `#version 300 es
     precision highp float;
 
-    in vec4 colorData;
+    in vec3 TexCoords;
     out vec4 color;
+
+    uniform samplerCube skybox;
 
     void main() 
     {
-        color = colorData;
+        color = texture(skybox, TexCoords);
     }
 `;

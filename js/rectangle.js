@@ -92,6 +92,25 @@ class SolidRectangle {
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
 
         this.shader = shader;
+
+        this.img_list =  [
+            document.getElementById("cube_right"), document.getElementById("cube_left"),
+            document.getElementById("cube_top"), document.getElementById("cube_bottom"),
+            document.getElementById("cube_back"), document.getElementById("cube_front"),
+        ];
+    }
+
+    valid() {
+        for (let i = 0; i < 6; i++) {
+            if (!this.img_list[i].complete)
+                return false;
+        }
+        return true;
+    }
+
+    generate() {
+        this.cubemapTexture = new TextureCube()
+        this.cubemapTexture.generate(2048, 2048, this.img_list)
     }
 
     render(camera, center, size, color) {
@@ -105,6 +124,7 @@ class SolidRectangle {
         this.shader.setUniform3f("uCenter", center.x, center.y, center.z); // 立方体中心位置
         this.shader.setUniform3f("uSize", size.x, size.y, size.z);
         this.shader.setUniform1f("uColor", color);
+        this.shader.bindTexture("skybox", this.cubemapTexture, 0);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
         const locPosition = this.shader.getAttribLoc('aPosition');
