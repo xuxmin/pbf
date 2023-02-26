@@ -14,7 +14,6 @@ const stepper = document.getElementById('stepper');
 const run = document.getElementById('run');
 const reset = document.getElementById('reset');
 const ipt_num = document.getElementById("ipt-stepper-num");
-const frame_label = document.getElementById("current-frame");
 
 const gui = new dat.gui.GUI();
 const myStats = new Stats();
@@ -231,7 +230,6 @@ const step = () => {
         step_num--;
         ipt_num.value = step_num.toString();
     }
-    frame_label.innerHTML = "Current frame:" + current_frame.toString();
     render();
     window.requestAnimationFrame(step);
 }
